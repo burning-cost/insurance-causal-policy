@@ -15,6 +15,16 @@ from insurance_causal_policy import (
     pre_trend_summary,
 )
 
+try:
+    import matplotlib
+    import matplotlib.pyplot as plt
+    matplotlib.use("Agg")
+    _MPL_OK = True
+except Exception:
+    _MPL_OK = False
+
+_skip_mpl = pytest.mark.skipif(not _MPL_OK, reason="matplotlib not functional in this environment")
+
 
 class TestFullSDIDPipeline:
     """End-to-end SDID pipeline from synthetic raw data to FCA pack."""
@@ -71,6 +81,7 @@ class TestFullSDIDPipeline:
         assert "Motor" in md
         assert len(md) > 200
 
+    @_skip_mpl
     def test_event_study_plot_runs(self):
         panel = PolicyPanelBuilder(
             self.policy_df, self.claims_df, self.rate_log_df
@@ -79,6 +90,7 @@ class TestFullSDIDPipeline:
         fig = plot_event_study(result)
         assert fig is not None
 
+    @_skip_mpl
     def test_unit_weights_plot_runs(self):
         panel = PolicyPanelBuilder(
             self.policy_df, self.claims_df, self.rate_log_df

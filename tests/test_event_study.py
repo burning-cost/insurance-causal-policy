@@ -10,6 +10,17 @@ from insurance_causal_policy._event_study import (
 )
 from insurance_causal_policy._types import SDIDResult, SDIDWeights
 
+# Check matplotlib is actually functional (not just importable)
+try:
+    import matplotlib
+    import matplotlib.pyplot as plt
+    matplotlib.use("Agg")
+    _MPL_OK = True
+except Exception:
+    _MPL_OK = False
+
+_skip_mpl = pytest.mark.skipif(not _MPL_OK, reason="matplotlib not functional in this environment")
+
 
 def make_result_with_event_study(pre_trend_pval=0.40, att=-0.05):
     event_df = pd.DataFrame({
@@ -48,6 +59,7 @@ def make_result_with_event_study(pre_trend_pval=0.40, att=-0.05):
     )
 
 
+@_skip_mpl
 class TestPlotEventStudy:
     def test_returns_figure(self):
         import matplotlib
@@ -83,6 +95,7 @@ class TestPlotEventStudy:
         assert fig is not None
 
 
+@_skip_mpl
 class TestPlotUnitWeights:
     def test_returns_figure(self):
         result = make_result_with_event_study()

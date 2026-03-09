@@ -6,6 +6,17 @@ import pytest
 from insurance_causal_policy._sensitivity import compute_sensitivity, plot_sensitivity
 from insurance_causal_policy._types import SDIDResult, SDIDWeights, SensitivityResult
 
+# Check matplotlib is actually functional (not just importable)
+try:
+    import matplotlib
+    import matplotlib.pyplot as plt
+    matplotlib.use("Agg")
+    _MPL_OK = True
+except Exception:
+    _MPL_OK = False
+
+_skip_mpl = pytest.mark.skipif(not _MPL_OK, reason="matplotlib not functional in this environment")
+
 
 def make_result(att=-0.05, se=0.015, pre_trend_pval=0.40):
     event_df = pd.DataFrame({
@@ -119,6 +130,7 @@ class TestComputeSensitivity:
             compute_sensitivity(result, method="bad_method")
 
 
+@_skip_mpl
 class TestPlotSensitivity:
     def test_returns_figure(self):
         result = make_result()
