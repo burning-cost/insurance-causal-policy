@@ -26,6 +26,18 @@ SDID (Arkhangelsky et al., 2021, AER) combines Synthetic Control and Difference-
 
 The FCA used a causal DiD design in its own evaluation of GIPP remedies (EP25/2). SDID is the same class of method, applied to individual rate change evaluation.
 
+## Installation
+
+```bash
+pip install insurance-causal-policy
+```
+
+With Callaway-Sant'Anna staggered adoption:
+
+```bash
+pip install insurance-causal-policy "differences>=0.2.0"
+```
+
 ## Quick start
 
 ```python
@@ -180,26 +192,29 @@ Good evidence for a Consumer Duty outcome monitoring pack:
 
 This library produces all of it.
 
-## Installation
-
-```bash
-pip install insurance-causal-policy
-```
-
-With Callaway-Sant'Anna staggered adoption:
-
-```bash
-pip install insurance-causal-policy "differences>=0.2.0"
-```
-
 ## Dependencies
 
 - `polars` — panel construction (faster than pandas for large books)
-- `pandas` — result objects (compatibilitiy with econometrics libraries)
+- `pandas` — result objects (compatibility with econometrics libraries)
 - `numpy`, `scipy` — numerical computation
 - `cvxpy` — SDID weight optimisation (native implementation, no R dependency)
 - `matplotlib` — plots
 - `differences` (optional) — Callaway-Sant'Anna reference implementation
+
+## Related libraries
+
+| Library | Why it's relevant |
+|---------|------------------|
+| [insurance-causal](https://github.com/burning-cost/insurance-causal) | Double Machine Learning for causal rating factor analysis — the within-model equivalent of this library's between-period approach |
+| [insurance-monitoring](https://github.com/burning-cost/insurance-monitoring) | PSI and A/E drift detection for detecting when a rate change is needed |
+| [insurance-demand](https://github.com/burning-cost/insurance-demand) | Demand modelling and ENBP compliance — the commercial complement to loss ratio causal analysis |
+| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — Consumer Duty evidence pack often requires both causal outcome monitoring and fairness audit |
+
+[All Burning Cost libraries →](https://burning-cost.github.io)
+
+## Read more
+
+[Your Rate Change Didn't Prove Anything](https://burning-cost.github.io/blog/your-rate-change-didnt-prove-anything) — why before-and-after comparisons fail FCA scrutiny and how SDID fixes this.
 
 ## References
 
