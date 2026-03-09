@@ -1,5 +1,7 @@
 # insurance-causal-policy
 [![Tests](https://github.com/burning-cost/insurance-causal-policy/actions/workflows/tests.yml/badge.svg)](https://github.com/burning-cost/insurance-causal-policy/actions/workflows/tests.yml)
+[![PyPI](https://img.shields.io/pypi/v/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 
 Pricing teams change rates. Loss ratios move. But did the rate change cause the movement, or was it market inflation, mix shift, or a concurrent regulatory change?
 
