@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import json
 import warnings
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 import numpy as np
@@ -78,7 +78,7 @@ class FCAEvidencePack:
         self.analyst = analyst
         self.panel_summary = panel_summary
         self.additional_notes = additional_notes
-        self._generated_at = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
+        self._generated_at = datetime.now(tz=timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
     # ------------------------------------------------------------------
     # Public interface
