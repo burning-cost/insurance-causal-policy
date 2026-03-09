@@ -110,7 +110,6 @@ def make_synthetic_motor_panel(
     # Treatment assignment
     n_treated = max(1, int(n_segments * treat_fraction))
     treated_idx = rng.choice(n_segments, size=n_treated, replace=False)
-    treated_set = set(treated_idx)
 
     # Staggered cohort assignment
     if staggered:
@@ -126,67 +125,84 @@ def make_synthetic_motor_panel(
             start = ci * chunk_size
             end = start + chunk_size if ci < n_stagger_cohorts - 1 else len(treated_list)
             for idx in treated_list[start:end]:
-                cohort_assignments[idx] = cp
+                cohort_assignments[idx] = int(cp)
     else:
-        cohort_assignments = {idx: treatment_period for idx in treated_idx}
+        cohort_assignments = {int(idx): treatment_period for idx in treated_idx}
 
-    # --- Generate panel data ---
-    policy_rows = []
-    claims_rows = []
+    # --- Generate panel data using numpy arrays for type stability ---
+    n_policy_rows = n_segments * n_periods
+    seg_ids_flat = []
+    periods_flat = []
+    premiums_flat = []
+    exposures_flat = []
+    incurred_flat = []
+    counts_flat = []
 
     for i, seg_id in enumerate(segment_ids):
-        # Exposure (earned premium) — varies by segment and period
         base_premium = rng.uniform(200_000, 2_000_000)
         base_exposure = rng.uniform(500, 5_000)
-
         first_treated = cohort_assignments.get(i, None)
 
         for t in range(1, n_periods + 1):
-            # Exposure grows slightly over time
-            exposure_t = base_exposure * (1 + 0.01 * t) + rng.normal(0, base_exposure * 0.02)
-            premium_t = base_premium * (1 + 0.02 * t) + rng.normal(0, base_premium * 0.03)
-            exposure_t = max(exposure_t, 10.0)
-            premium_t = max(premium_t, 10_000.0)
+            exposure_t = max(base_exposure * (1 + 0.01 * t) + rng.normal(0, base_exposure * 0.02), 10.0)
+            premium_t = max(base_premium * (1 + 0.02 * t) + rng.normal(0, base_premium * 0.03), 10_000.0)
 
-            # True loss ratio = base + segment FE + time trend + treatment + noise
             is_treated = (first_treated is not None) and (t >= first_treated)
-            lr = (
-                base_loss_ratio
-                + alpha[i]
-                + beta[t - 1]
+            lr = max(
+                base_loss_ratio + alpha[i] + beta[t - 1]
                 + (true_att if is_treated else 0.0)
-                + rng.normal(0, noise_sd)
+                + rng.normal(0, noise_sd),
+                0.05,
             )
-            lr = max(lr, 0.05)  # floor at 5%
-
             incurred = lr * premium_t
             claim_count = int(max(0, rng.poisson(exposure_t * 0.08)))
 
-            policy_rows.append({
-                "segment_id": seg_id,
-                "period": t,
-                "earned_premium": round(premium_t, 2),
-                "earned_exposure": round(exposure_t, 2),
-            })
-            claims_rows.append({
-                "segment_id": seg_id,
-                "period": t,
-                "incurred_claims": round(incurred, 2),
-                "claim_count": claim_count,
-            })
+            seg_ids_flat.append(seg_id)
+            periods_flat.append(t)
+            premiums_flat.append(round(premium_t, 2))
+            exposures_flat.append(round(exposure_t, 2))
+            incurred_flat.append(round(incurred, 2))
+            counts_flat.append(claim_count)
 
-    # Rate change log
-    rate_log_rows = []
+    policy_df = pl.DataFrame({
+        "segment_id": seg_ids_flat,
+        "period": periods_flat,
+        "earned_premium": premiums_flat,
+        "earned_exposure": exposures_flat,
+    }, schema={
+        "segment_id": pl.String,
+        "period": pl.Int64,
+        "earned_premium": pl.Float64,
+        "earned_exposure": pl.Float64,
+    })
+
+    claims_df = pl.DataFrame({
+        "segment_id": seg_ids_flat,
+        "period": periods_flat,
+        "incurred_claims": incurred_flat,
+        "claim_count": counts_flat,
+    }, schema={
+        "segment_id": pl.String,
+        "period": pl.Int64,
+        "incurred_claims": pl.Float64,
+        "claim_count": pl.Int64,
+    })
+
+    # Rate change log — only treated segments, explicit Int64
+    rate_seg_ids = []
+    rate_periods = []
     for i, seg_id in enumerate(segment_ids):
         if i in cohort_assignments:
-            rate_log_rows.append({
-                "segment_id": seg_id,
-                "first_treated_period": cohort_assignments[i],
-            })
+            rate_seg_ids.append(seg_id)
+            rate_periods.append(cohort_assignments[i])
 
-    policy_df = pl.DataFrame(policy_rows)
-    claims_df = pl.DataFrame(claims_rows)
-    rate_log_df = pl.DataFrame(rate_log_rows)
+    rate_log_df = pl.DataFrame({
+        "segment_id": rate_seg_ids,
+        "first_treated_period": rate_periods,
+    }, schema={
+        "segment_id": pl.String,
+        "first_treated_period": pl.Int64,
+    })
 
     return policy_df, claims_df, rate_log_df
 
@@ -218,29 +234,73 @@ def make_synthetic_panel_direct(
     alpha = rng.normal(0, 0.06, N)
     beta = np.arange(T) * trend
 
-    rows = []
+    # Build column arrays explicitly to avoid Polars null-type inference
+    seg_ids = []
+    periods = []
+    loss_ratios = []
+    premiums = []
+    exposures = []
+    incurred = []
+    counts = []
+    first_treated_list = []
+    treated_list = []
+    cohort_list = []
+
     for i in range(N):
         is_treated_unit = i >= n_control
-        first_treated = t_pre + 1 if is_treated_unit else None
+        first_treated_val = t_pre + 1 if is_treated_unit else None
 
         for t in range(1, T + 1):
             treated_cell = is_treated_unit and t > t_pre
-            lr = base_lr + alpha[i] + beta[t - 1] + (true_att if treated_cell else 0.0) + rng.normal(0, noise_sd)
-            lr = max(lr, 0.01)
-            premium = 500_000 + rng.normal(0, 50_000)
-            exposure = 2000 + rng.normal(0, 200)
-            incurred = lr * premium
-            rows.append({
-                "segment_id": f"seg_{i:03d}",
-                "period": t,
-                "loss_ratio": lr,
-                "earned_premium": max(premium, 10_000),
-                "earned_exposure": max(exposure, 50),
-                "incurred_claims": max(incurred, 0),
-                "claim_count": int(max(0, rng.poisson(exposure * 0.08))),
-                "first_treated_period": first_treated,
-                "treated": 1 if treated_cell else 0,
-                "cohort": first_treated,
-            })
+            lr = max(
+                base_lr + alpha[i] + beta[t - 1]
+                + (true_att if treated_cell else 0.0)
+                + rng.normal(0, noise_sd),
+                0.01,
+            )
+            premium = max(500_000 + rng.normal(0, 50_000), 10_000.0)
+            exposure = max(2000 + rng.normal(0, 200), 50.0)
+            inc = max(lr * premium, 0.0)
+            ct = int(max(0, rng.poisson(exposure * 0.08)))
 
-    return pl.DataFrame(rows)
+            seg_ids.append(f"seg_{i:03d}")
+            periods.append(t)
+            loss_ratios.append(lr)
+            premiums.append(premium)
+            exposures.append(exposure)
+            incurred.append(inc)
+            counts.append(ct)
+            first_treated_list.append(first_treated_val)
+            treated_list.append(1 if treated_cell else 0)
+            cohort_list.append(first_treated_val)
+
+    # Build DataFrame with explicit schema to avoid null-type inference
+    df = pl.DataFrame(
+        {
+            "segment_id": seg_ids,
+            "period": periods,
+            "loss_ratio": loss_ratios,
+            "earned_premium": premiums,
+            "earned_exposure": exposures,
+            "incurred_claims": incurred,
+            "claim_count": counts,
+            "first_treated_period": [
+                x if x is not None else None for x in first_treated_list
+            ],
+            "treated": treated_list,
+            "cohort": [x if x is not None else None for x in cohort_list],
+        },
+        schema={
+            "segment_id": pl.String,
+            "period": pl.Int64,
+            "loss_ratio": pl.Float64,
+            "earned_premium": pl.Float64,
+            "earned_exposure": pl.Float64,
+            "incurred_claims": pl.Float64,
+            "claim_count": pl.Int64,
+            "first_treated_period": pl.Int64,
+            "treated": pl.Int64,
+            "cohort": pl.Int64,
+        },
+    )
+    return df

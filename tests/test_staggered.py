@@ -30,6 +30,61 @@ def make_staggered_panel(n_segments=60, n_periods=14, seed=5):
     return builder.build()
 
 
+def _make_staggered_panel_direct():
+    """Build a staggered panel by modifying make_synthetic_panel_direct output.
+
+    Splits treated segments into 2 cohorts (periods 7 and 8) without using
+    map_elements (which has type inference issues with Null values).
+    """
+    base = make_synthetic_panel_direct(
+        n_control=30, n_treated=10,
+        t_pre=6, t_post=4,
+        true_att=-0.07, random_seed=15,
+    )
+
+    # Get treated segment IDs
+    treated_segs = (
+        base.filter(pl.col("first_treated_period").is_not_null())
+        ["segment_id"].unique().sort().to_list()
+    )
+    n_tr = len(treated_segs)
+    half = n_tr // 2
+
+    # Build cohort mapping: first half -> 7, second half -> 8
+    cohort_a = treated_segs[:half]   # cohort period 7
+    cohort_b = treated_segs[half:]   # cohort period 8
+
+    # Build a mapping DataFrame for joining
+    cohort_df = pl.DataFrame({
+        "segment_id": cohort_a + cohort_b,
+        "new_cohort": [7] * len(cohort_a) + [8] * len(cohort_b),
+    }, schema={"segment_id": pl.String, "new_cohort": pl.Int64})
+
+    # Join to get new cohort values
+    panel = base.join(cohort_df, on="segment_id", how="left")
+
+    # Replace cohort and treated columns
+    panel = panel.with_columns(
+        pl.when(pl.col("new_cohort").is_not_null())
+        .then(pl.col("new_cohort"))
+        .otherwise(None)
+        .alias("cohort"),
+    )
+    panel = panel.with_columns(
+        pl.when(
+            pl.col("cohort").is_not_null()
+            & (pl.col("period") >= pl.col("cohort"))
+        )
+        .then(pl.lit(1))
+        .otherwise(pl.lit(0))
+        .alias("treated")
+    )
+    panel = panel.drop("new_cohort")
+    # Cast cohort back to Int64 (may be cast to Float64 by when/then with null)
+    panel = panel.with_columns(pl.col("cohort").cast(pl.Int64, strict=False))
+    return panel
+
+
 class TestAggregateEventStudy:
     def test_returns_dataframe(self):
         import pandas as pd
@@ -116,33 +171,7 @@ class TestFitNativeCS21:
 
 class TestStaggeredEstimator:
     def setup_method(self):
-        # Use a smaller panel for speed
-        self.panel = make_synthetic_panel_direct(
-            n_control=30, n_treated=10,
-            t_pre=6, t_post=4,
-            true_att=-0.07, random_seed=15,
-        )
-        # Add staggered structure: split treated into 2 cohorts
-        import polars as pl
-        segs = self.panel.filter(
-            pl.col("first_treated_period").is_not_null()
-        )["segment_id"].unique().to_list()
-        cohort_map = {}
-        for i, s in enumerate(segs):
-            cohort_map[s] = 7 if i < len(segs) // 2 else 8
-
-        self.panel = self.panel.with_columns(
-            pl.col("segment_id").map_elements(
-                lambda s: cohort_map.get(s, None), return_dtype=pl.Float64
-            ).alias("cohort"),
-            pl.struct(["segment_id", "period"]).map_elements(
-                lambda row: 1 if (
-                    cohort_map.get(row["segment_id"]) is not None
-                    and row["period"] >= cohort_map.get(row["segment_id"], 9999)
-                ) else 0,
-                return_dtype=pl.Int64,
-            ).alias("treated"),
-        )
+        self.panel = _make_staggered_panel_direct()
 
     def test_fit_returns_staggered_result(self):
         est = StaggeredEstimator(self.panel, outcome="loss_ratio")
@@ -191,7 +220,6 @@ class TestStaggeredEstimator:
     def test_pre_trends_pass_attribute(self):
         est = StaggeredEstimator(self.panel, outcome="loss_ratio")
         result = est.fit()
-        # Should be bool or True (if pval is None)
         assert isinstance(result.pre_trends_pass, bool)
 
     def test_att_negative_direction(self):
