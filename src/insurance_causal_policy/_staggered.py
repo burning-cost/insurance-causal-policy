@@ -252,7 +252,8 @@ class StaggeredEstimator:
         Prefers the `differences` package (CS21 reference implementation).
         Falls back to native implementation if unavailable.
         """
-        panel_pd = self.panel.to_pandas()
+        # Use dict-based conversion to avoid pyarrow dependency (Databricks serverless compat)
+        panel_pd = pd.DataFrame(self.panel.to_dict(as_series=False))
         # Rename for clarity
         panel_pd = panel_pd.rename(columns={
             self.unit_col: "unit_id",

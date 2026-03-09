@@ -195,10 +195,11 @@ class TestPolicyPanelBuilderFrequency:
 class TestBuildPanelFromPandas:
     def test_accepts_pandas_input(self):
         import pandas as pd
+        import pandas as pd
         result = build_panel_from_pandas(
-            policy_df=make_minimal_policy().to_pandas(),
-            claims_df=make_minimal_claims().to_pandas(),
-            rate_log_df=make_minimal_rate_log().to_pandas(),
+            policy_df=pd.DataFrame(make_minimal_policy().to_dict(as_series=False)),
+            claims_df=pd.DataFrame(make_minimal_claims().to_dict(as_series=False)),
+            rate_log_df=pd.DataFrame(make_minimal_rate_log().to_dict(as_series=False)),
         )
         assert isinstance(result, pl.DataFrame)
         assert "loss_ratio" in result.columns

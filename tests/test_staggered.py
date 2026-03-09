@@ -148,9 +148,10 @@ class TestFitNativeCS21:
     def test_returns_dataframe(self):
         import pandas as pd
         from insurance_causal_policy._synthetic import make_synthetic_panel_direct
-        panel = make_synthetic_panel_direct(
+        _pl = make_synthetic_panel_direct(
             n_control=20, n_treated=8, t_pre=5, t_post=3, random_seed=10
-        ).to_pandas()
+        )
+        panel = pd.DataFrame(_pl.to_dict(as_series=False))
         panel = panel.rename(columns={
             "segment_id": "unit_id",
             "loss_ratio": "outcome",
@@ -162,6 +163,7 @@ class TestFitNativeCS21:
             unit_col="unit_id",
             period_col="period",
             cohort_col="first_treated_period",
+            control_group="notyettreated",
         )
         assert "cohort" in att_gt.columns
         assert "period" in att_gt.columns

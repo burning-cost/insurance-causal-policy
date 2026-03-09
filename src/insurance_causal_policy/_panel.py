@@ -193,7 +193,8 @@ class PolicyPanelBuilder:
         """Return the panel as a pandas DataFrame (for econometrics libraries)."""
         if self._panel is None:
             raise RuntimeError("Call build() before to_pandas().")
-        return self._panel.to_pandas()
+        # Use dict-based conversion to avoid pyarrow dependency (Databricks serverless compat)
+        return pd.DataFrame(self._panel.to_dict(as_series=False))
 
     # ------------------------------------------------------------------
     # Private implementation
