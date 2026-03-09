@@ -204,7 +204,7 @@ def plot_sensitivity(
         import matplotlib.pyplot as plt
         import matplotlib
         matplotlib.use("Agg")
-    except ImportError:
+    except Exception:
         raise ImportError("matplotlib required for sensitivity plot.")
 
     if ax is None:

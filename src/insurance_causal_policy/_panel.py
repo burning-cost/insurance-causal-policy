@@ -362,10 +362,14 @@ def build_panel_from_pandas(
     Converts inputs to Polars and calls PolicyPanelBuilder.build().
     Returns a Polars DataFrame.
     """
+    def _pd_to_pl(df: pd.DataFrame) -> pl.DataFrame:
+        # Avoid pyarrow-based conversion (Databricks serverless compat)
+        return pl.DataFrame(df.to_dict("list"))
+
     return PolicyPanelBuilder(
-        policy_df=pl.from_pandas(policy_df),
-        claims_df=pl.from_pandas(claims_df),
-        rate_log_df=pl.from_pandas(rate_log_df),
+        policy_df=_pd_to_pl(policy_df),
+        claims_df=_pd_to_pl(claims_df),
+        rate_log_df=_pd_to_pl(rate_log_df),
         outcome=outcome,
         exposure_col=exposure_col,
         min_exposure=min_exposure,

@@ -217,7 +217,7 @@ class StaggeredResult:
     def pre_trends_pass(self) -> bool:
         if self.pre_trend_pval is None:
             return True
-        return self.pre_trend_pval > 0.10
+        return bool(self.pre_trend_pval > 0.10)
 
 
 @dataclass

@@ -26,7 +26,7 @@ try:
 
     matplotlib.use("Agg")
     _MPL_AVAILABLE = True
-except ImportError:
+except Exception:
     _MPL_AVAILABLE = False
 
 from ._types import SDIDResult, StaggeredResult
