@@ -78,7 +78,6 @@ print(result.summary())
 # → SDID estimate: -0.0792 decrease in loss_ratio (95% CI: -0.1103 to -0.0481, p=0.000)
 
 # Sensitivity analysis
-from insurance_causal_policy import compute_sensitivity
 sens = compute_sensitivity(result, m_values=[0, 0.5, 1.0, 2.0])
 print(sens.summary())
 # → Result robust for all M tested (up to 2.0)
@@ -126,7 +125,9 @@ Segments absent from `rate_log_df` are classified as never-treated (valid contro
 
 ## Staggered adoption
 
-When different segments received rate changes at different times, use `StaggeredEstimator` instead:
+When different segments received rate changes at different times, use `StaggeredEstimator` instead.
+
+Note: `StaggeredEstimator` uses the `differences` package (Callaway-Sant'Anna reference implementation). Install it first: `pip install "differences>=0.2.0"`
 
 ```python
 from insurance_causal_policy import StaggeredEstimator
