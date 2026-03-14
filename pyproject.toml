@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal-policy"
-version = "0.1.4"
+version = "0.1.7"
 description = "Causal evaluation of insurance pricing interventions using Synthetic Difference-in-Differences"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
 readme = "README.md"
@@ -32,10 +32,10 @@ classifiers = [
 ]
 dependencies = [
     "polars>=1.0",
-    "pandas>=2.0",
+    "pandas>=1.5",
     "numpy>=1.24",
-    "scipy>=1.10",
-    "cvxpy>=1.4",
+    "scipy>=1.9,<1.11",
+    "cvxpy>=1.4,<1.6.1",
     "matplotlib>=3.7",
 ]
 
