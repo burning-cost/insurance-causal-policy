@@ -235,6 +235,13 @@ business vintages, SDID's synthetic control reweighting does meaningful addition
 - `matplotlib` — plots
 - `differences` (optional) — Callaway-Sant'Anna reference implementation
 
+## Worked Example
+
+[`causal_rate_change_evaluation.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/causal_rate_change_evaluation.py) — full SDID rate change evaluation on synthetic motor portfolio: event study, HonestDiD sensitivity, FCA evidence pack.
+
+A Databricks-importable version is also available: [Databricks notebook](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/causal_rate_change_evaluation.py).
+
+
 ## Related libraries
 
 | Library | Why it's relevant |
