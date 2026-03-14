@@ -94,6 +94,11 @@ pack = FCAEvidencePack(
 print(pack.to_markdown())
 ```
 
+## Worked Example
+
+[`causal_rate_change_evaluation.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/causal_rate_change_evaluation.py) walks through the full SDID workflow end-to-end: a synthetic motor portfolio with staggered rate changes, event study pre-treatment validation, HonestDiD sensitivity analysis, and final output as a structured FCA Consumer Duty evidence pack. It is the fastest way to see all four components working together on realistic data before wiring in your own policy and claims tables.
+
+
 ## Your data schema
 
 `policy_df` — one row per segment per period:
