@@ -252,3 +252,11 @@ business vintages, SDID's synthetic control reweighting does meaningful addition
 - Rambachan, Roth (2023). *A More Credible Approach to Parallel Trends*. Review of Economic Studies, rdad018.
 - FCA TR24/2 (2024). Insurance multi-firm outcomes monitoring review.
 - FCA EP25/2 (2025). Evaluation of GIPP remedies.
+
+## Related Libraries
+
+| Library | What it does |
+|---------|-------------|
+| [insurance-causal](https://github.com/burning-cost/insurance-causal) | Double Machine Learning for individual-level causal effects — complements portfolio-level SDID with risk-level treatment effect estimation |
+| [insurance-trend](https://github.com/burning-cost/insurance-trend) | Trend analysis with structural break detection — separates genuine market trends from the effects of pricing actions |
+
