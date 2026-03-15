@@ -289,3 +289,7 @@ A Databricks-importable version is also available: [Databricks notebook](https:/
 ## Licence
 
 BSD-3
+
+---
+
+**Need help implementing this in production?** [Talk to us](https://burning-cost.github.io/work-with-us/).
