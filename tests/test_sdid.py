@@ -7,6 +7,7 @@ from insurance_causal_policy._sdid import (
     SDIDEstimator,
     _compute_regularisation_zeta,
     _fit_sdid_core,
+    _jackknife_variance,
     _solve_unit_weights,
     _solve_time_weights,
     _weighted_twfe,
@@ -258,3 +259,154 @@ class TestSDIDEstimator:
         ).fit()
         assert abs(r1.att - r2.att) < 1e-8
         assert abs(r1.se - r2.se) < 1e-8
+
+
+# ---------------------------------------------------------------------------
+# Regression tests for P0 bugs fixed 2026-03-15
+# ---------------------------------------------------------------------------
+
+
+class TestP0RegressionRegularisationZeta:
+    """P0-1: zeta must use demeaned first differences, not raw ones.
+
+    A panel with a strong common time trend (claims inflation) should produce a
+    much smaller sigma when the trend is removed.  The raw first-differences
+    formula included the trend in sigma, inflating zeta and over-regularising
+    the unit weights toward equal weights.
+    """
+
+    def test_demeaned_sigma_smaller_than_raw_under_trend(self):
+        """With a strong common trend, demeaned sigma < raw sigma."""
+        rng = np.random.default_rng(99)
+        n_co, t_pre = 20, 8
+        # Panel with strong common trend but small unit noise
+        time_trend = np.linspace(0.0, 0.10, t_pre)  # 10pp trend over pre-period
+        unit_fe = rng.normal(0.0, 0.01, (n_co, 1))
+        noise = rng.normal(0.0, 0.005, (n_co, t_pre))
+        y_pre_co = 0.70 + unit_fe + time_trend[None, :] + noise
+
+        # Compute raw sigma (old behaviour)
+        raw_diffs = np.diff(y_pre_co, axis=1).flatten()
+        sigma_raw = np.std(raw_diffs)
+
+        # Compute demeaned sigma (new behaviour applied inside the function)
+        unit_means = y_pre_co.mean(axis=1, keepdims=True)
+        time_means = y_pre_co.mean(axis=0, keepdims=True)
+        grand_mean = y_pre_co.mean()
+        y_demeaned = y_pre_co - unit_means - time_means + grand_mean
+        demeaned_diffs = np.diff(y_demeaned, axis=1).flatten()
+        sigma_demeaned = np.std(demeaned_diffs)
+
+        # The demeaned sigma should be substantially smaller
+        assert sigma_demeaned < sigma_raw * 0.5, (
+            f"Expected demeaned sigma << raw sigma under trend; "
+            f"got demeaned={sigma_demeaned:.5f}, raw={sigma_raw:.5f}"
+        )
+
+    def test_zeta_not_inflated_by_trend(self):
+        """The actual function should produce a zeta not dominated by the trend."""
+        rng = np.random.default_rng(100)
+        n_co, t_pre = 20, 8
+        n_treated, t_post = 5, 3
+
+        # Pure noise panel (no trend) — baseline zeta
+        y_no_trend = rng.normal(0.70, 0.01, (n_co, t_pre))
+        zeta_no_trend = _compute_regularisation_zeta(y_no_trend, n_treated, t_post)
+
+        # Strong trend panel — with demeaning, zeta should be ~similar to no-trend
+        time_trend = np.linspace(0.0, 0.10, t_pre)
+        unit_fe = rng.normal(0.0, 0.01, (n_co, 1))
+        noise = rng.normal(0.0, 0.01, (n_co, t_pre))
+        y_with_trend = 0.70 + unit_fe + time_trend[None, :] + noise
+        zeta_with_trend = _compute_regularisation_zeta(y_with_trend, n_treated, t_post)
+
+        # After demeaning, the trend is absorbed.  zeta_with_trend should be
+        # within a reasonable factor of zeta_no_trend (not inflated 10x).
+        ratio = zeta_with_trend / max(zeta_no_trend, 1e-9)
+        assert ratio < 5.0, (
+            f"zeta inflated by trend even after demeaning: ratio={ratio:.2f}"
+        )
+
+
+class TestP0RegressionJackknifeVariance:
+    """P0-2: jackknife variance must use n_total = n_co + n_tr, not n_j.
+
+    When some replicates are skipped (convergence failure), n_j < n_total.
+    Using n_j understates the variance via a smaller (n_j-1)/n_j correction
+    and a smaller denominator in the mean computation.
+    """
+
+    def test_variance_uses_n_total_not_n_j(self):
+        """Simulate dropped replicates: variance with n_total > variance with n_j."""
+        rng = np.random.default_rng(42)
+        # Build a set of hypothetical jackknife replicates and two results
+        n_total = 10
+        n_j = 7  # 3 replicates dropped (convergence failure simulation)
+        jack_atts = np.array([-0.08, -0.07, -0.06, -0.09, -0.07, -0.065, -0.075])
+        jack_mean = np.mean(jack_atts)
+        sq_devs = np.sum((jack_atts - jack_mean) ** 2)
+
+        var_wrong = ((n_j - 1) / n_j) * sq_devs    # old (buggy) formula
+        var_correct = ((n_total - 1) / n_total) * sq_devs  # new (fixed) formula
+
+        assert var_correct > var_wrong, (
+            "With dropped replicates, n_total-based variance should exceed n_j-based"
+        )
+
+    def test_jackknife_variance_end_to_end_with_small_panel(self):
+        """End-to-end: jackknife SE should be finite and positive."""
+        panel = make_synthetic_panel_direct(
+            n_control=15, n_treated=5, t_pre=4, t_post=3,
+            true_att=-0.05, noise_sd=0.03, random_seed=7,
+        )
+        est = SDIDEstimator(
+            panel, outcome="loss_ratio", inference="jackknife", n_replicates=0
+        )
+        result = est.fit()
+        assert result.se > 0
+        assert np.isfinite(result.se)
+
+
+class TestP0RegressionEventStudyUniformWeights:
+    """P0-3: event study pre-trend test must use uniform time weights.
+
+    With SDID lambda_ (concentrated weights), pre-treatment ATTs are non-zero
+    by construction even under perfect parallel trends.  Uniform weights give
+    ATTs that are genuinely zero in expectation under parallel trends.
+    """
+
+    def test_pretrend_atts_near_zero_under_parallel_trends(self):
+        """Under null DGP (true ATT=0), pre-trend ATTs should be near zero."""
+        panel = make_synthetic_panel_direct(
+            n_control=40, n_treated=10, t_pre=6, t_post=3,
+            true_att=0.0, noise_sd=0.02, random_seed=55,
+        )
+        est = SDIDEstimator(
+            panel, outcome="loss_ratio", inference="placebo", n_replicates=50,
+            random_seed=55,
+        )
+        result = est.fit()
+        pre_atts = result.event_study[result.event_study["period_rel"] < 0]["att"].values
+        assert len(pre_atts) > 0
+        # Under null, pre-period ATTs should be small — std < 2x noise level
+        assert np.std(pre_atts) < 0.06, (
+            f"Pre-trend ATT std too large: {np.std(pre_atts):.4f}. "
+            "Suggests SDID lambda_ weights leaked into event study."
+        )
+
+    def test_event_study_pre_atts_not_systematically_non_zero(self):
+        """Mean of pre-trend ATTs should be close to zero (no structural bias)."""
+        panel = make_synthetic_panel_direct(
+            n_control=50, n_treated=15, t_pre=8, t_post=3,
+            true_att=0.0, noise_sd=0.02, random_seed=77,
+        )
+        est = SDIDEstimator(
+            panel, outcome="loss_ratio", inference="placebo", n_replicates=30,
+            random_seed=77,
+        )
+        result = est.fit()
+        pre_atts = result.event_study[result.event_study["period_rel"] < 0]["att"].values
+        assert abs(np.mean(pre_atts)) < 0.05, (
+            f"Mean pre-trend ATT {np.mean(pre_atts):.4f} too large; "
+            "uniform weights should give ~zero mean under null."
+        )

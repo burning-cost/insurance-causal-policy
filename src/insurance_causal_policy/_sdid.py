@@ -57,8 +57,17 @@ def _compute_regularisation_zeta(
     Delta_it = first differences (Y_it - Y_{i,t-1}) for control units in
     pre-treatment. sigma = std of these first differences.
     """
-    # First differences along time axis for control units
-    first_diffs = np.diff(y_pre_co, axis=1).flatten()
+    # Two-way demean y_pre_co before taking first differences.
+    # Arkhangelsky et al. (2021) footnote 4: sigma should be estimated from
+    # control residuals after removing unit and time fixed effects.  Raw first
+    # differences contain common trends (e.g. claims inflation) that inflate
+    # sigma, over-regularise omega, and collapse the synthetic control toward
+    # an equal-weighted average.
+    unit_means = y_pre_co.mean(axis=1, keepdims=True)
+    time_means = y_pre_co.mean(axis=0, keepdims=True)
+    grand_mean = y_pre_co.mean()
+    y_demeaned = y_pre_co - unit_means - time_means + grand_mean
+    first_diffs = np.diff(y_demeaned, axis=1).flatten()
     sigma = np.std(first_diffs) if len(first_diffs) > 0 else 1.0
     zeta = (n_treated * t_post) ** 0.25 * sigma
     return max(zeta, 1e-6)
@@ -388,9 +397,12 @@ def _jackknife_variance(
         raise RuntimeError("Jackknife variance estimation failed.")
 
     n_j = len(jack_atts)
-    # Jackknife variance formula
+    # Jackknife variance formula: correction factor uses the original panel
+    # size n_total = n_co + n_tr, NOT the number of successful replicates n_j.
+    # When any unit is skipped (convergence failure), n_j < n_total and using
+    # n_j in the denominator understates the variance.  See Miller (1974).
     jack_mean = np.mean(jack_atts)
-    variance = ((n_j - 1) / n_j) * np.sum((np.array(jack_atts) - jack_mean) ** 2)
+    variance = ((n_total - 1) / n_total) * np.sum((np.array(jack_atts) - jack_mean) ** 2)
     return float(variance)
 
 
@@ -706,8 +718,15 @@ class SDIDEstimator:
         Y_co_pre = Y_co[:, :t_pre]
         Y_tr_pre = Y_tr[:, :t_pre]
 
-        Y_tr_pre_lam = np.mean(Y_tr_pre @ lambda_)
-        Y_co_pre_om_lam = omega @ (Y_co_pre @ lambda_)
+        # For the event study diagnostic, use uniform (equal) pre-treatment
+        # weights, not SDID lambda_.  SDID lambda_ concentrates on a subset
+        # of pre-periods, which makes pre-treatment ATTs non-zero by
+        # construction even under perfect parallel trends — producing spurious
+        # pre-trend failures.  Uniform weights give a clean DiD-by-period
+        # picture consistent with standard event study convention.
+        # The headline ATT (in _weighted_twfe) still uses the full SDID weights.
+        Y_tr_pre_uniform = np.mean(Y_tr_pre)
+        Y_co_pre_om_uniform = omega @ np.mean(Y_co_pre, axis=1)
 
         T = t_pre + t_post
         att_by_period = []
@@ -715,7 +734,7 @@ class SDIDEstimator:
         for t_idx in range(T):
             Y_tr_t = np.mean(Y_tr[:, t_idx])
             Y_co_t_om = omega @ Y_co[:, t_idx]
-            att_t = (Y_tr_t - Y_tr_pre_lam) - (Y_co_t_om - Y_co_pre_om_lam)
+            att_t = (Y_tr_t - Y_tr_pre_uniform) - (Y_co_t_om - Y_co_pre_om_uniform)
             period_rel = t_idx - t_pre  # negative for pre-treatment
             att_by_period.append({"period_rel": period_rel, "att": att_t})
 

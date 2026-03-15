@@ -179,16 +179,43 @@ def _aggregate_event_study(
 ) -> pd.DataFrame:
     """Aggregate ATT(g, t) to event-study form: ATT by periods-since-treatment.
 
-    Groups by (period - cohort) and takes a simple average across cohorts.
-    More sophisticated: cohort-size-weighted average. We weight by number of
-    observations in each cohort-period pair.
+    Implements Callaway-Sant'Anna (2021) equation 4.2: the event-study
+    aggregation is a cohort-size-weighted mean of ATT(g, g+l) across cohorts g,
+    where cohort size = number of distinct units in that cohort.
+
+    P1-1 fix: weight by cohort size.  An unweighted mean misrepresents the
+    aggregate when cohort sizes differ — large cohorts contribute equally to
+    small ones, which is almost always wrong in insurance staggered rollouts.
+
+    P1-2 fix: SE of a weighted mean of independent estimates is
+    sqrt(sum(w_i^2 * se_i^2)) where w_i are normalised weights.  The previous
+    formula sqrt(mean(se_i^2)) overstated the aggregate SE by sqrt(k) where k
+    is the number of cohorts contributing to each relative period.
     """
     att_gt = att_gt.copy()
     att_gt["period_rel"] = att_gt["period"] - att_gt["cohort"]
 
+    # Cohort sizes: number of units per cohort.  Fall back to equal weights if
+    # the column is absent (e.g. from the differences package path).
+    if "cohort_size" not in att_gt.columns:
+        # Count distinct units per cohort as a proxy for cohort size
+        cohort_sizes = (
+            att_gt.groupby("cohort")["cohort"].transform("count")
+        )
+        att_gt["cohort_size"] = cohort_sizes
+
+    def _weighted_att(group: pd.DataFrame) -> pd.Series:
+        w = group["cohort_size"].values.astype(float)
+        w = w / w.sum()  # normalised weights
+        att = float(np.dot(w, group["att"].values))
+        # SE of weighted sum of independent estimates: sqrt(sum(w_i^2 * se_i^2))
+        se_vals = group["se"].values.astype(float)
+        se = float(np.sqrt(np.dot(w**2, se_vals**2)))
+        return pd.Series({"att": att, "se": se})
+
     event = (
         att_gt.groupby("period_rel")
-        .agg(att=("att", "mean"), se=("se", lambda x: np.sqrt(np.mean(x**2))))
+        .apply(_weighted_att, include_groups=False)
         .reset_index()
     )
     event["ci_low"] = event["att"] - 1.96 * event["se"]
