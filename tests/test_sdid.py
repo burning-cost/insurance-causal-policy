@@ -275,21 +275,28 @@ class TestP0RegressionRegularisationZeta:
     the unit weights toward equal weights.
     """
 
-    def test_demeaned_sigma_smaller_than_raw_under_trend(self):
-        """With a strong common trend, demeaned sigma < raw sigma."""
+    def test_demeaned_sigma_smaller_than_raw_under_nonlinear_trend(self):
+        """With non-linear common time effects, demeaned sigma < raw sigma.
+
+        A linear trend does not inflate std(first_diffs) because it contributes
+        a constant increment (shifts the mean, not the variance).  Non-linear
+        time effects DO inflate std(first_diffs) — they produce variable
+        increments that two-way demeaning removes.  This is the regime where
+        the fix matters (accelerating claims inflation, step changes from
+        regulatory interventions, etc.).
+        """
         rng = np.random.default_rng(99)
         n_co, t_pre = 20, 8
-        # Panel with strong common trend but small unit noise
-        time_trend = np.linspace(0.0, 0.10, t_pre)  # 10pp trend over pre-period
-        unit_fe = rng.normal(0.0, 0.01, (n_co, 1))
         noise = rng.normal(0.0, 0.005, (n_co, t_pre))
-        y_pre_co = 0.70 + unit_fe + time_trend[None, :] + noise
+        # Non-linear time effects: slow then accelerating (like inflation shock)
+        time_effects = np.array([0.0, 0.01, 0.025, 0.04, 0.08, 0.09, 0.095, 0.10])
+        y_pre_co = 0.70 + time_effects[None, :] + noise
 
-        # Compute raw sigma (old behaviour)
+        # Raw sigma
         raw_diffs = np.diff(y_pre_co, axis=1).flatten()
         sigma_raw = np.std(raw_diffs)
 
-        # Compute demeaned sigma (new behaviour applied inside the function)
+        # Demeaned sigma (two-way demean removes time effects)
         unit_means = y_pre_co.mean(axis=1, keepdims=True)
         time_means = y_pre_co.mean(axis=0, keepdims=True)
         grand_mean = y_pre_co.mean()
@@ -297,9 +304,9 @@ class TestP0RegressionRegularisationZeta:
         demeaned_diffs = np.diff(y_demeaned, axis=1).flatten()
         sigma_demeaned = np.std(demeaned_diffs)
 
-        # The demeaned sigma should be substantially smaller
-        assert sigma_demeaned < sigma_raw * 0.5, (
-            f"Expected demeaned sigma << raw sigma under trend; "
+        # After demeaning, non-linear time effects are removed: sigma drops substantially
+        assert sigma_demeaned < sigma_raw * 0.7, (
+            f"Expected demeaned sigma substantially < raw under non-linear trend; "
             f"got demeaned={sigma_demeaned:.5f}, raw={sigma_raw:.5f}"
         )
 

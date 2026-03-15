@@ -213,9 +213,12 @@ def _aggregate_event_study(
         se = float(np.sqrt(np.dot(w**2, se_vals**2)))
         return pd.Series({"att": att, "se": se})
 
+    # include_groups=False was added in pandas 2.0; for pandas 1.x compatibility
+    # we drop the groupby key before applying.
+    _att_gt_for_apply = att_gt.drop(columns=["period_rel"])
     event = (
-        att_gt.groupby("period_rel")
-        .apply(_weighted_att, include_groups=False)
+        att_gt.groupby("period_rel")[_att_gt_for_apply.columns.tolist()]
+        .apply(_weighted_att)
         .reset_index()
     )
     event["ci_low"] = event["att"] - 1.96 * event["se"]
