@@ -53,7 +53,7 @@ from ._evidence import FCAEvidencePack
 from ._synthetic import make_synthetic_motor_panel, make_synthetic_panel_direct
 from ._types import SDIDResult, SDIDWeights, StaggeredResult, SensitivityResult
 
-__version__ = "0.1.4"
+__version__ = "0.1.7"
 
 __all__ = [
     # Panel construction

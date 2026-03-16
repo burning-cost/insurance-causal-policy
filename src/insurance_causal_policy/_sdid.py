@@ -406,6 +406,66 @@ def _jackknife_variance(
     return float(variance)
 
 
+def _placebo_period_atts(
+    Y: np.ndarray,
+    omega: np.ndarray,
+    lambda_: np.ndarray,
+    n_co: int,
+    n_tr: int,
+    t_pre: int,
+    t_post: int,
+    n_replicates: int,
+    rng: np.random.Generator,
+) -> np.ndarray:
+    """Per-period ATT vectors from placebo resampling.
+
+    Reuses the weights (omega, lambda) from the main SDID fit and runs
+    placebo treatments across control units. Returns an array of shape
+    (n_replicates, T) where T = t_pre + t_post.
+
+    This is the standard approach for event-study confidence bands in SDID:
+    hold the weights fixed and vary which control units are "treated" to
+    estimate the sampling variance of each period-specific estimate.
+
+    Requires N_co > N_tr.
+    """
+    if n_co <= n_tr:
+        return np.full((0, t_pre + t_post), np.nan)
+
+    Y_co = Y[:n_co]
+    T = t_pre + t_post
+    replicate_atts = []
+
+    for _ in range(n_replicates):
+        placebo_tr_idx = rng.choice(n_co, size=n_tr, replace=False)
+        placebo_co_idx = np.setdiff1d(np.arange(n_co), placebo_tr_idx)
+
+        Y_plac_tr = Y_co[placebo_tr_idx]  # (n_tr, T)
+        Y_plac_co = Y_co[placebo_co_idx]  # (n_co - n_tr, T)
+
+        # Reweight omega to the reduced control group (renormalise)
+        omega_plac = omega[placebo_co_idx]
+        omega_sum = omega_plac.sum()
+        if omega_sum < 1e-12:
+            omega_plac = np.ones(len(placebo_co_idx)) / len(placebo_co_idx)
+        else:
+            omega_plac = omega_plac / omega_sum
+
+        Y_tr_pre = Y_plac_tr[:, :t_pre]
+        Y_tr_pre_lam = float(np.mean(Y_plac_tr[:, :t_pre] @ lambda_))
+        Y_co_pre_om_lam = float(omega_plac @ (Y_plac_co[:, :t_pre] @ lambda_))
+
+        period_atts = np.empty(T)
+        for t_idx in range(T):
+            Y_tr_t = float(np.mean(Y_plac_tr[:, t_idx]))
+            Y_co_t_om = float(omega_plac @ Y_plac_co[:, t_idx])
+            period_atts[t_idx] = (Y_tr_t - Y_tr_pre_lam) - (Y_co_t_om - Y_co_pre_om_lam)
+
+        replicate_atts.append(period_atts)
+
+    return np.array(replicate_atts)  # (n_replicates, T)
+
+
 # ---------------------------------------------------------------------------
 # Core fit function
 # ---------------------------------------------------------------------------
@@ -740,17 +800,28 @@ class SDIDEstimator:
 
         event_df = pd.DataFrame(att_by_period)
 
-        # Estimate SE for each period via placebo (limited replicates for speed)
+        # Estimate SE for each period via placebo resampling.
+        # We reuse the fitted weights (omega, lambda) and vary which control
+        # units are assigned as placebo-treated. This is cheap (no re-optimisation)
+        # and gives asymptotically valid bands under the same assumptions as the
+        # overall placebo variance estimate.
+        z_crit = 1.96  # 95% confidence bands
         n_rep_es = min(50, self.n_replicates)
-        period_ses = []
-        for t_idx in range(T):
-            # Use leave-one-out period variance as a rough estimate
-            # Full placebo per period is expensive; use overall SE as approximation
-            period_ses.append(np.nan)
+        # For all inference methods: placebo-resample control units to get
+        # per-period variance. When n_co <= n_tr (can't do placebo), all SEs
+        # will be NaN and the caller should switch to bootstrap for the full ATT.
+        plac_mat = _placebo_period_atts(
+            Y, omega, lambda_, n_co, n_tr, t_pre, t_post, n_rep_es, self.rng
+        )
+        if len(plac_mat) >= 2:
+            period_ses = list(np.std(plac_mat, axis=0, ddof=1))
+        else:
+            period_ses = [np.nan] * T
 
-        event_df["se"] = np.nan
-        event_df["ci_low"] = np.nan
-        event_df["ci_high"] = np.nan
+        ses = np.array(period_ses)
+        event_df["se"] = ses
+        event_df["ci_low"] = event_df["att"] - z_crit * ses
+        event_df["ci_high"] = event_df["att"] + z_crit * ses
 
         # Joint pre-treatment test: are pre-treatment ATTs jointly zero?
         pre_atts = event_df[event_df["period_rel"] < 0]["att"].values

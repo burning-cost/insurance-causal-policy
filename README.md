@@ -11,7 +11,7 @@ Pricing teams change rates. Loss ratios move. But did the rate change cause the 
 
 Standard before-and-after comparisons can't answer this. Neither can regression on mixed datasets. You need a control group and a method that handles the messy reality of insurance panels — staggered adoption across segments, varying exposures, IBNR lag, and market-wide shocks that hit everything at once.
 
-This library implements Synthetic Difference-in-Differences (SDID) for insurance rate change evaluation. It converts policy/claims tables into segment × quarter panels, estimates causal effects with proper statistical inference, and produces structured output that satisfies FCA Consumer Duty evidence requirements.
+This library implements Synthetic Difference-in-Differences (SDID) for insurance rate change evaluation. It converts policy/claims tables into segment × quarter panels, estimates causal effects with proper statistical inference, and produces structured output in a format consistent with FCA Consumer Duty evidence requirements.
 
 ## Why bother
 
@@ -26,7 +26,7 @@ Benchmarked against naive before-after and plain DiD on synthetic UK motor insur
 | Produces confidence interval | No | No | Yes |
 | Pre-treatment validation | No | No | Yes |
 | Sensitivity analysis | No | No | Yes |
-| Accepted by FCA as evidence standard | No | Marginal | Yes (same class as EP25/2) |
+| Useful for demonstrating rate adequacy | No | Partial | Yes |
 
 The naive before-after bias scales with the length of the post-treatment window and the rate of market claims inflation. On a 4-quarter post window with 0.5pp quarterly inflation, the naive estimate overstates the rate change benefit by roughly 2pp. SDID eliminates this bias by constructing a synthetic control that tracks the same inflation as the treated group.
 
@@ -44,7 +44,7 @@ SDID (Arkhangelsky et al., 2021, AER) combines Synthetic Control and Difference-
 - **Difference-in-Differences** uses the post-treatment divergence between treated and synthetic control as the causal estimate
 - **SDID** adds an intercept term to the unit weight optimisation (absorbs level differences — unlike pure SC) and adds time weights to emphasise pre-treatment periods most predictive of the post-treatment window
 
-The FCA used a causal DiD design in its own evaluation of GIPP remedies (EP25/2). SDID is the same class of method, applied to individual rate change evaluation.
+The FCA has used causal DiD designs in its own market evaluations (for example, its GIPP remedies review). SDID belongs to the same methodological family — applying that class of reasoning to individual rate change evaluation. The FCA has not specifically endorsed SDID as an evidence standard.
 
 ## Installation
 
@@ -208,7 +208,7 @@ Loss ratio for periods within 18 months of the analysis date understates ultimat
 
 FCA TR24/2 (2024) found that most insurers failed to demonstrate causal attribution between rate changes and outcomes. They showed data before and after but did not show that the rate change caused the change, rather than external factors.
 
-FCA EP25/2 (2025) — the FCA's own evaluation of GIPP remedies — used a causal DiD design with an Average Causal Response interpretation. SDID is the same class of method the FCA uses in its own evaluation work.
+The FCA has used causal DiD designs in its own market evaluations. SDID belongs to the same methodological family, which means the underlying reasoning — constructing a control group and attributing the difference causally — is the same approach that regulators find credible. The FCA has not specifically endorsed SDID as an evidence standard for rate change evaluation.
 
 Good evidence for a Consumer Duty outcome monitoring pack:
 - Pre-treatment parallel trends test (visual and statistical)
@@ -277,7 +277,7 @@ A Databricks-importable version is also available: [Databricks notebook](https:/
 - Callaway, Sant'Anna (2021). *Difference-in-Differences with Multiple Time Periods*. Journal of Econometrics 225(2): 200–230.
 - Rambachan, Roth (2023). *A More Credible Approach to Parallel Trends*. Review of Economic Studies, rdad018.
 - FCA TR24/2 (2024). Insurance multi-firm outcomes monitoring review.
-- FCA EP25/2 (2025). Evaluation of GIPP remedies.
+- FCA (2025). Evaluation of GIPP remedies (internal evaluation paper, causal DiD methodology).
 
 ## Related Libraries
 
