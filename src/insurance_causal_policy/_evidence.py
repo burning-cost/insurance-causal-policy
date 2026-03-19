@@ -335,5 +335,5 @@ class FCAEvidencePack:
             "Estimator: Synthetic Difference-in-Differences (Arkhangelsky et al. 2021). "
             "This document is for internal evidence purposes. The FCA has not prescribed "
             "a specific causal methodology — SDID is used because it is the same class of "
-            "method the FCA itself uses in evaluation work (see EP25/2).*"
+            "method the FCA itself used in its own GIPP remedies evaluation (EP25/2, July 2025).*"
         )
