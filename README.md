@@ -15,6 +15,8 @@ Standard before-and-after comparisons can't answer this. Neither can regression 
 
 This library implements Synthetic Difference-in-Differences (SDID) for insurance rate change evaluation. It converts policy/claims tables into segment × quarter panels, estimates causal effects with proper statistical inference, and produces structured output in a format consistent with FCA Consumer Duty evidence requirements.
 
+**Blog post:** [Synthetic Difference-in-Differences for Rate Change Evaluation](https://burning-cost.github.io/2026/03/13/your-rate-change-didnt-prove-anything/)
+
 ## Why bother
 
 Benchmarked against naive before-after and plain DiD on synthetic UK motor insurance panel data (100 segments, 12 quarterly periods, true ATT = -0.08 on loss ratio). Market-wide claims inflation of 0.5pp per period creates upward bias in naive estimators that do not use a control group. Results from `notebooks/benchmark_sdid.py` run 2026-03-17 on Databricks serverless.
