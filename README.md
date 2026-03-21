@@ -58,13 +58,13 @@ The FCA has used causal DiD designs in its own market evaluations (for example, 
 ## Installation
 
 ```bash
-pip install insurance-causal-policy
+uv add insurance-causal-policy
 ```
 
 With Callaway-Sant'Anna staggered adoption:
 
 ```bash
-pip install insurance-causal-policy "differences>=0.2.0"
+uv add insurance-causal-policy "differences>=0.2.0"
 ```
 
 ## Quick start
@@ -159,7 +159,7 @@ Segments absent from `rate_log_df` are classified as never-treated (valid contro
 
 When different segments received rate changes at different times, use `StaggeredEstimator` instead.
 
-Note: `StaggeredEstimator` uses the `differences` package (Callaway-Sant'Anna reference implementation). Install it first: `pip install "differences>=0.2.0"`
+Note: `StaggeredEstimator` uses the `differences` package (Callaway-Sant'Anna reference implementation). Install it first: `uv add "differences>=0.2.0"`
 
 ```python
 from insurance_causal_policy import StaggeredEstimator
