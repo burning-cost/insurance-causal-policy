@@ -359,16 +359,6 @@ calibrated than the bootstrap SE for large symmetric problems.
 A Databricks-importable version is also available: [Databricks notebook](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/causal_rate_change_evaluation.py).
 
 
-## Related libraries
-
-| Library | Why it's relevant |
-|---------|------------------|
-| [insurance-causal](https://github.com/burning-cost/insurance-causal) | Double Machine Learning for causal rating factor analysis — the within-model equivalent of this library's between-period approach |
-| [insurance-monitoring](https://github.com/burning-cost/insurance-monitoring) | PSI and A/E drift detection for detecting when a rate change is needed |
-| [insurance-demand](https://github.com/burning-cost/insurance-demand) | Demand modelling and ENBP compliance — the commercial complement to loss ratio causal analysis |
-| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — Consumer Duty evidence pack often requires both causal outcome monitoring and fairness audit |
-
-[All Burning Cost libraries →](https://burning-cost.github.io)
 
 ## References
 
@@ -381,11 +371,12 @@ A Databricks-importable version is also available: [Databricks notebook](https:/
 
 ## Related Libraries
 
-| Library | What it does |
+| Library | Description |
 |---------|-------------|
 | [insurance-causal](https://github.com/burning-cost/insurance-causal) | Double Machine Learning for individual-level causal effects — complements portfolio-level SDID with risk-level treatment effect estimation |
 | [insurance-trend](https://github.com/burning-cost/insurance-trend) | Trend analysis with structural break detection — separates genuine market trends from the effects of pricing actions |
-
+| [insurance-monitoring](https://github.com/burning-cost/insurance-monitoring) | PSI and A/E drift detection — for detecting when a rate change is needed |
+| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — Consumer Duty evidence pack often requires both causal outcome monitoring and fairness audit |
 ## Licence
 
 BSD-3
