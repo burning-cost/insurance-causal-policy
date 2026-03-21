@@ -300,6 +300,49 @@ Benchmarked against naive before-after and plain DiD on synthetic UK motor insur
 
 Run `notebooks/benchmark_sdid.py` on Databricks to reproduce.
 
+
+## DRSC vs SDID: benchmark results
+
+100-simulation Monte Carlo on synthetic motor insurance panels (true ATT = -0.06,
+factor model DGP, 8 pre-treatment + 4 post-treatment periods, 5 treated units).
+Run on Databricks serverless 2026-03-21. See `notebooks/drsc_vs_sdid.py` for
+full methodology.
+
+SDID uses jackknife inference. DRSC uses multiplier bootstrap (Exp(1)-1), valid
+under either SC identification or parallel trends.
+
+**Few donors (N_co = 6):**
+
+| Metric              | SDID    | DRSC    |
+|---------------------|---------|---------|
+| Mean ATT (true=-0.06) | -0.0588 | -0.0590 |
+| Absolute bias       | 0.0012  | 0.0010  |
+| RMSE                | 0.0137  | 0.0104  |
+| Std dev             | 0.0137  | 0.0104  |
+| 95% CI coverage     | 97%     | 93%     |
+
+DRSC reduces RMSE by 24% at N_co=6. Both estimators recover the ATT with similar
+low bias under the factor model DGP. The DRSC advantage is variance reduction
+from the OLS-weight + multiplier bootstrap combination, which doesn't force weights
+into the simplex.
+
+**Many donors (N_co = 40):**
+
+| Metric              | SDID    | DRSC    |
+|---------------------|---------|---------|
+| Mean ATT (true=-0.06) | -0.0601 | -0.0601 |
+| RMSE                | 0.0088  | 0.0088  |
+| 95% CI coverage     | 96%     | 91%     |
+
+At N_co=40, both methods perform identically on point estimates and RMSE. SDID has
+slightly better CI coverage (96% vs 91%), likely because jackknife SE is better
+calibrated than the bootstrap SE for large symmetric problems.
+
+**Decision rule:**
+- N_co < 10: use `DoublyRobustSCEstimator`
+- N_co >= 20: use `SDIDEstimator`
+- N_co 10–20: run both; if estimates diverge by more than one SE, investigate SC weight diagnostics
+
 ## Dependencies
 
 - `polars` — panel construction (faster than pandas for large books)
