@@ -13,7 +13,7 @@ Pricing teams change rates. Loss ratios move. But did the rate change cause the 
 
 Standard before-and-after comparisons can't answer this. Neither can regression on mixed datasets. You need a control group and a method that handles the messy reality of insurance panels — staggered adoption across segments, varying exposures, IBNR lag, and market-wide shocks that hit everything at once.
 
-This library implements Synthetic Difference-in-Differences (SDID) for insurance rate change evaluation. It converts policy/claims tables into segment × quarter panels, estimates causal effects with proper statistical inference, and produces structured output in a format consistent with FCA Consumer Duty evidence requirements.
+This library implements Synthetic Difference-in-Differences (SDID) and Doubly Robust Synthetic Controls (DRSC) for insurance rate change evaluation. It converts policy/claims tables into segment × quarter panels, estimates causal effects with proper statistical inference, and produces structured output in a format consistent with FCA Consumer Duty evidence requirements.
 
 **Blog post:** [Synthetic Difference-in-Differences for Rate Change Evaluation](https://burning-cost.github.io/2026/03/13/your-rate-change-didnt-prove-anything/)
 
@@ -54,6 +54,59 @@ SDID (Arkhangelsky et al., 2021, AER) combines Synthetic Control and Difference-
 - **SDID** adds an intercept term to the unit weight optimisation (absorbs level differences — unlike pure SC) and adds time weights to emphasise pre-treatment periods most predictive of the post-treatment window
 
 The FCA has used causal DiD designs in its own market evaluations (for example, its GIPP remedies review). SDID belongs to the same methodological family — applying that class of reasoning to individual rate change evaluation. The FCA has not specifically endorsed SDID as an evidence standard.
+
+
+## Doubly Robust Synthetic Controls (DRSC)
+
+DRSC (Sant'Anna, Shaikh, Syrgkanis 2025, arXiv:2503.11375) is a formally doubly robust version of synthetic control for insurance panels. Use it instead of SDID when:
+
+- Your donor pool is small (5-15 control segments) — the DR property provides a safety net if SC weights are poorly identified
+- Your post-treatment window covers disrupted periods (COVID 2020, GIPP reform 2022) — parallel trends may hold approximately even when SC fit is imperfect
+- You want a consistency guarantee under either assumption (SC or PT), not just informal robustness
+
+The key difference from SDID: SC weights are estimated via unconstrained OLS (not CVXPY constrained quadratic program). Negative weights are valid and expected. No CVXPY dependency.
+
+```python
+from insurance_causal_policy import DoublyRobustSCEstimator, make_synthetic_panel_direct
+
+# Generate a balanced panel directly (for testing)
+panel = make_synthetic_panel_direct(
+    n_control=15,    # small donor pool -- ideal DRSC use case
+    n_treated=5,
+    t_pre=8,
+    t_post=4,
+    true_att=-0.06,
+)
+
+est = DoublyRobustSCEstimator(
+    panel,
+    outcome="loss_ratio",
+    inference="bootstrap",   # Exp(1)-1 multiplier bootstrap; valid under PT or SC
+    n_replicates=500,
+)
+result = est.fit()
+print(result.summary())
+# -> DRSC estimate: -0.0614 decrease in loss_ratio (95% CI: -0.0924 to -0.0304, p=0.000)
+
+# SC weights (unconstrained OLS -- negative weights allowed)
+print(result.weights.sc_weights)
+
+# Per-unit moment function (ATT = mean(phi))
+print(result.phi.mean())  # should equal result.att
+
+# FCA evidence summary
+print(result.to_fca_summary(product_line="Motor", rate_change_date="2023-Q1"))
+```
+
+**SDID vs DRSC -- which to use:**
+
+| Situation | Recommendation |
+|-----------|---------------|
+| Large donor pool (50+ controls), clean pre-trends | SDID (CVXPY weights well-identified) |
+| Small donor pool (5-15 controls) | DRSC (DR property is the safety net) |
+| Post-COVID or GIPP window, uncertain PT | DRSC (consistent under SC alone) |
+| Need simplex-constrained (non-negative) weights | SDID |
+| No CVXPY available | DRSC (pure numpy/scipy) |
 
 ## Installation
 
@@ -276,6 +329,7 @@ A Databricks-importable version is also available: [Databricks notebook](https:/
 
 ## References
 
+- Sant'Anna, Shaikh, Syrgkanis (2025). *Doubly Robust Synthetic Controls*. arXiv:2503.11375.
 - Arkhangelsky, Athey, Hirshberg, Imbens, Wager (2021). *Synthetic Difference-in-Differences*. American Economic Review 111(12): 4088–4118.
 - Callaway, Sant'Anna (2021). *Difference-in-Differences with Multiple Time Periods*. Journal of Econometrics 225(2): 200–230.
 - Rambachan, Roth (2023). *A More Credible Approach to Parallel Trends*. Review of Economic Studies, rdad018.

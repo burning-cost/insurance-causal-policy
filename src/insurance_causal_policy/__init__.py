@@ -3,19 +3,17 @@ insurance-causal-policy
 =======================
 
 Causal evaluation of insurance pricing interventions using Synthetic
-Difference-in-Differences (SDID) and Callaway-Sant'Anna (2021).
+Difference-in-Differences (SDID), Callaway-Sant'Anna (2021), and Doubly
+Robust Synthetic Controls (DRSC, Sant'Anna, Shaikh, Syrgkanis 2025).
 
 Did your rate change actually reduce your loss ratio? This library provides
 the tools to measure it causally.
 
-Quick start
------------
+Quick start — SDID
+------------------
 >>> from insurance_causal_policy import (
 ...     PolicyPanelBuilder,
 ...     SDIDEstimator,
-...     StaggeredEstimator,
-...     FCAEvidencePack,
-...     compute_sensitivity,
 ...     make_synthetic_motor_panel,
 ... )
 >>> policy_df, claims_df, rate_log_df = make_synthetic_motor_panel(
@@ -27,6 +25,19 @@ Quick start
 >>> result = est.fit()
 >>> print(result.summary())
 
+Quick start — DRSC (doubly robust)
+-----------------------------------
+>>> from insurance_causal_policy import DoublyRobustSCEstimator, make_synthetic_panel_direct
+>>> panel = make_synthetic_panel_direct(n_control=30, n_treated=10, t_pre=8, t_post=4, true_att=-0.06)
+>>> est = DoublyRobustSCEstimator(panel, outcome="loss_ratio", inference="bootstrap")
+>>> result = est.fit()
+>>> print(result.summary())
+
+Use DRSC over SDID when:
+  - Small donor pool (5-15 control segments) — DR property provides a safety net
+  - Post-disruption periods (COVID, GIPP) where parallel trends is uncertain
+  - You want formal double robustness guarantees (consistent under EITHER SC OR PT)
+
 References
 ----------
 - Arkhangelsky, Athey, Hirshberg, Imbens, Wager (2021).
@@ -35,12 +46,15 @@ References
   Journal of Econometrics 225(2): 200-230.
 - Rambachan & Roth (2023). A More Credible Approach to Parallel Trends.
   Review of Economic Studies, rdad018.
+- Sant'Anna, Shaikh, Syrgkanis (2025). Doubly Robust Synthetic Controls.
+  arXiv:2503.11375.
 - FCA TR24/2 (2024). Insurance multi-firm outcomes monitoring review.
 - FCA EP25/2 (2025). Evaluation of GIPP remedies.
 """
 
 from ._panel import PolicyPanelBuilder, build_panel_from_pandas
 from ._sdid import SDIDEstimator
+from ._drsc import DoublyRobustSCEstimator
 from ._staggered import StaggeredEstimator
 from ._event_study import (
     plot_event_study,
@@ -51,9 +65,9 @@ from ._event_study import (
 from ._sensitivity import compute_sensitivity, plot_sensitivity
 from ._evidence import FCAEvidencePack
 from ._synthetic import make_synthetic_motor_panel, make_synthetic_panel_direct
-from ._types import SDIDResult, SDIDWeights, StaggeredResult, SensitivityResult
+from ._types import SDIDResult, SDIDWeights, DRSCResult, DRSCWeights, StaggeredResult, SensitivityResult
 
-__version__ = "0.1.7"
+__version__ = "0.2.0"
 
 __all__ = [
     # Panel construction
@@ -61,6 +75,7 @@ __all__ = [
     "build_panel_from_pandas",
     # Estimators
     "SDIDEstimator",
+    "DoublyRobustSCEstimator",
     "StaggeredEstimator",
     # Diagnostics
     "plot_event_study",
@@ -78,6 +93,8 @@ __all__ = [
     # Types
     "SDIDResult",
     "SDIDWeights",
+    "DRSCResult",
+    "DRSCWeights",
     "StaggeredResult",
     "SensitivityResult",
     # Version

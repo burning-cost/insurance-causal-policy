@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "insurance-causal-policy"
-version = "0.1.8"
+version = "0.2.0"
 description = "Causal evaluation of insurance pricing interventions using Synthetic Difference-in-Differences"
 authors = [{ name = "Burning Cost", email = "pricing.frontier@gmail.com" }]
 readme = "README.md"
@@ -55,3 +55,8 @@ packages = ["src/insurance_causal_policy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+]

@@ -194,6 +194,179 @@ Notes
 
 
 @dataclass
+class DRSCWeights:
+    """SC weights and propensity ratios computed by the DRSC estimator.
+
+    sc_weights: Series indexed by control unit identifier. Unlike SDID unit
+        weights, these are unconstrained — negative values are valid and indicate
+        extrapolation beyond the convex hull of control units. They are identified
+        via OLS on pre-treatment group means (Eq. 10 of arXiv:2503.11375), not
+        via a constrained quadratic program.
+    propensity_ratios: Series indexed by control unit identifier. In the no-
+        covariate (aggregate panel) case, r_{1,g} = n_treated for all control
+        units (simplification of pi_1 / pi_g when each control is its own group
+        of size 1). With covariates, these would be estimated via local polynomial.
+    m_delta: Pooled control trend — mean(DeltaY_co) across all control units.
+        This is the no-covariate estimate of E[Y_T(0) - Y_{T-1}(0) | G != 1].
+    """
+
+    sc_weights: pd.Series
+    propensity_ratios: pd.Series
+    m_delta: float
+
+
+@dataclass
+class DRSCResult:
+    """Full DRSC estimation result.
+
+    Attributes
+    ----------
+    att : float
+        Average Treatment Effect on the Treated. Estimated via the doubly
+        robust moment function (Eq. 3 of arXiv:2503.11375). Consistent if
+        EITHER SC weights are correctly specified OR parallel trends holds.
+    se : float
+        Standard error of the ATT estimate.
+    ci_low, ci_high : float
+        95% confidence interval bounds (normal approximation).
+    pval : float
+        Two-sided p-value for H0: ATT = 0.
+    weights : DRSCWeights
+        SC weights, propensity ratios, and pooled control trend.
+    phi : np.ndarray
+        Per-unit moment function values (N,). ATT = mean(phi). Useful for
+        custom bootstrap procedures or diagnostic analysis.
+    pre_trend_pval : float or None
+        Joint p-value for H0: all pre-treatment ATTs = 0.
+    event_study : DataFrame or None
+        Columns: [period_rel, att, se, ci_low, ci_high].
+    n_treated : int
+        Number of treated segments.
+    n_control : int
+        Number of control segments.
+    t_pre : int
+        Number of pre-treatment periods.
+    t_post : int
+        Number of post-treatment periods.
+    outcome_name : str
+        Name of the outcome variable analysed.
+    inference_method : str
+        Variance estimation: 'bootstrap' or 'analytic'.
+    n_replicates : int
+        Number of bootstrap replicates (if inference='bootstrap').
+    """
+
+    att: float
+    se: float
+    ci_low: float
+    ci_high: float
+    pval: float
+    weights: DRSCWeights
+    phi: np.ndarray
+    pre_trend_pval: Optional[float]
+    event_study: Optional[pd.DataFrame]
+    n_treated: int
+    n_control: int
+    t_pre: int
+    t_post: int
+    outcome_name: str
+    inference_method: str
+    n_replicates: int
+
+    @property
+    def significant(self) -> bool:
+        """Returns True if ATT is significant at the 5% level."""
+        return self.pval < 0.05
+
+    @property
+    def pre_trends_pass(self) -> bool:
+        """Returns True if pre-treatment parallel trends test passes (p > 0.10)."""
+        if self.pre_trend_pval is None:
+            return True
+        return self.pre_trend_pval > 0.10
+
+    def summary(self) -> str:
+        """One-paragraph plain-English summary of the result."""
+        direction = "decrease" if self.att < 0 else "increase"
+        sig_text = "statistically significant" if self.significant else "not statistically significant"
+        trend_text = (
+            "Pre-treatment parallel trends: PASS"
+            if self.pre_trends_pass
+            else f"Pre-treatment parallel trends: WARNING (p={self.pre_trend_pval:.3f})"
+        )
+        return (
+            f"DRSC estimate: {self.att:+.4f} {direction} in {self.outcome_name} "
+            f"(95% CI: {self.ci_low:+.4f} to {self.ci_high:+.4f}, p={self.pval:.3f}). "
+            f"The effect is {sig_text}. "
+            f"Based on {self.n_treated} treated and {self.n_control} control segments "
+            f"with {self.t_pre} pre-treatment and {self.t_post} post-treatment periods. "
+            f"Inference via {self.inference_method} ({self.n_replicates} replicates). "
+            f"{trend_text}."
+        )
+
+    def to_fca_summary(
+        self,
+        product_line: str = "Motor",
+        rate_change_date: str = "",
+    ) -> str:
+        """Formatted regulatory narrative for FCA evidence packs.
+
+        Parameters
+        ----------
+        product_line : str
+            Product line affected by the rate change.
+        rate_change_date : str
+            Date of rate change implementation (for narrative context).
+        """
+        trend_status = (
+            "PASS — pre-treatment coefficients jointly indistinguishable from zero"
+            if self.pre_trends_pass
+            else (
+                f"WARNING — joint pre-treatment test p={self.pre_trend_pval:.3f}, "
+                "indicating possible parallel trends violation"
+            )
+        )
+        sig_statement = (
+            "The effect is statistically significant at the 5% level."
+            if self.significant
+            else "The effect is not statistically significant at the 5% level."
+        )
+        date_str = f" ({rate_change_date})" if rate_change_date else ""
+        return f"""Rate Change Evaluation — {product_line}{date_str}
+{'=' * 60}
+Outcome metric      : {self.outcome_name}
+Estimated ATT       : {self.att:+.4f} (in natural units of {self.outcome_name})
+95% Confidence interval: [{self.ci_low:+.4f}, {self.ci_high:+.4f}]
+p-value             : {self.pval:.4f}
+{sig_statement}
+
+Panel dimensions
+  Treated segments  : {self.n_treated}
+  Control segments  : {self.n_control}
+  Pre-treatment     : {self.t_pre} periods
+  Post-treatment    : {self.t_post} periods
+
+Parallel trends test: {trend_status}
+
+Estimator: Doubly Robust Synthetic Controls (Sant'Anna, Shaikh, Syrgkanis 2025)
+  SC weights via unconstrained OLS on pre-treatment group means.
+  Doubly robust: consistent under EITHER correct SC weights OR parallel trends.
+Inference: {self.inference_method} ({self.n_replicates} replicates)
+
+Notes
+  - DRSC SC weights are unconstrained — negative weights indicate extrapolation
+    beyond the convex hull of control units. This is expected and valid.
+  - In the no-covariate case (aggregate segment panel), propensity ratios
+    simplify to group size ratios; no local polynomial estimation is needed.
+  - The doubly robust property provides insurance against misspecification of
+    either the synthetic control or the parallel trends assumption.
+  - Results should be interpreted as causal estimates. External shocks
+    (Ogden rate changes, COVID lockdowns, GIPP reforms) should be assessed
+    separately through sensitivity analysis.
+"""
+
+
+@dataclass
 class StaggeredResult:
     """Result from Callaway-Sant'Anna staggered adoption estimator.
 
