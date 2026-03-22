@@ -63,6 +63,16 @@ def _compute_regularisation_zeta(
     # differences contain common trends (e.g. claims inflation) that inflate
     # sigma, over-regularise omega, and collapse the synthetic control toward
     # an equal-weighted average.
+    t_pre_local = y_pre_co.shape[1]
+    if t_pre_local < 3:
+        warnings.warn(
+            f"T_pre={t_pre_local}: fewer than 3 pre-treatment periods. The "
+            f"regularisation fallback is active and parallel trends cannot be "
+            f"reliably tested. At least 8 pre-treatment periods are recommended "
+            f"for credible parallel trends assessment.",
+            UserWarning,
+            stacklevel=3,
+        )
     unit_means = y_pre_co.mean(axis=1, keepdims=True)
     time_means = y_pre_co.mean(axis=0, keepdims=True)
     grand_mean = y_pre_co.mean()

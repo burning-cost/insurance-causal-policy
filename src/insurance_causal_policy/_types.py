@@ -409,6 +409,11 @@ class SensitivityResult:
     pre_period_sd: float  # SD of pre-period estimates (benchmark for M)
 
     def to_dataframe(self) -> pd.DataFrame:
+        if not self.m_values:
+            return pd.DataFrame(
+                columns=["m", "att_lower", "att_upper"],
+                data=[],
+            )
         return pd.DataFrame(
             {
                 "m": self.m_values,
@@ -418,6 +423,8 @@ class SensitivityResult:
         )
 
     def summary(self) -> str:
+        if not self.m_values:
+            return "No sensitivity values computed."
         if self.m_breakdown >= max(self.m_values):
             robustness = f"robust for all M tested (up to {max(self.m_values):.1f})"
         else:
