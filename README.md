@@ -3,7 +3,7 @@
 [![PyPI](https://img.shields.io/pypi/v/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
 [![Python](https://img.shields.io/pypi/pyversions/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
-[![License](https://img.shields.io/badge/license-BSD--3-blue)]()
+[![License](https://img.shields.io/badge/license-MIT-green)]()
 
 > 💬 Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal-policy/discussions). Found it useful? A ⭐ helps others find it.
 

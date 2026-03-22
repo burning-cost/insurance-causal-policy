@@ -49,6 +49,8 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/burning-cost/insurance-causal-policy"
 Repository = "https://github.com/burning-cost/insurance-causal-policy"
+Issues = "https://github.com/burning-cost/insurance-causal-policy/issues"
+Documentation = "https://github.com/burning-cost/insurance-causal-policy#readme"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/insurance_causal_policy"]
