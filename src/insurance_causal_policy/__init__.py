@@ -67,7 +67,12 @@ from ._evidence import FCAEvidencePack
 from ._synthetic import make_synthetic_motor_panel, make_synthetic_panel_direct
 from ._types import SDIDResult, SDIDWeights, DRSCResult, DRSCWeights, StaggeredResult, SensitivityResult
 
-__version__ = "0.2.0"
+from importlib.metadata import version, PackageNotFoundError
+
+try:
+    __version__ = version("insurance-causal-policy")
+except PackageNotFoundError:
+    __version__ = "0.0.0"  # not installed
 
 __all__ = [
     # Panel construction
