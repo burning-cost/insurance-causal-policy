@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.2.2] - 2026-03-23
+
+### Fixed
+- Bumped numpy minimum version from >=1.24 to >=1.25 to ensure compatibility with scipy's use of numpy.exceptions (added in numpy 1.25)
+
+
 ## v0.2.0 (2026-03-22) [unreleased]
 - feat: add Databricks benchmark notebook — SDID vs two-period DiD
 - fix: correct license badge; add missing Issues and Documentation URLs
