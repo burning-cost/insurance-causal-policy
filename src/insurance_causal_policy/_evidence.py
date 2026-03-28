@@ -4,7 +4,7 @@ FCA evidence pack generator.
 Produces structured regulatory output suitable for Consumer Duty outcome
 monitoring reports and FCA evidence packs for rate change evaluation.
 
-The FCA's TR24/2 found that firms routinely failed to demonstrate causal
+The FCA's multi-firm review of Consumer Duty implementation (2024) found that firms routinely failed to demonstrate causal
 attribution between rate changes and observed outcomes. This module generates
 the structured narrative and data quality documentation that addresses this gap.
 
@@ -36,7 +36,7 @@ class FCAEvidencePack:
     """Generate FCA-compliant evidence pack for a rate change evaluation.
 
     Combines SDID results, sensitivity analysis, and data quality statistics
-    into a structured document that addresses FCA TR24/2 requirements for
+    into a structured document that addresses FCA Consumer Duty (PRIN 2A) requirements for
     causal attribution between rate changes and outcomes.
 
     Parameters

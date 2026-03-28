@@ -268,7 +268,7 @@ Loss ratio for periods within 18 months of the analysis date understates ultimat
 
 ## FCA regulatory context
 
-FCA TR24/2 (2024) found that most insurers failed to demonstrate causal attribution between rate changes and outcomes. They showed data before and after but did not show that the rate change caused the change, rather than external factors.
+The FCA's multi-firm review of Consumer Duty implementation (2024) found that most insurers failed to demonstrate causal attribution between rate changes and outcomes. They showed data before and after but did not show that the rate change caused the change, rather than external factors.
 
 The FCA has used causal DiD designs in its own market evaluations. SDID belongs to the same methodological family, which means the underlying reasoning — constructing a control group and attributing the difference causally — is the same approach that regulators find credible. The FCA has not specifically endorsed SDID as an evidence standard for rate change evaluation.
 
@@ -366,7 +366,7 @@ A Databricks-importable version is also available: [Databricks notebook](https:/
 - Arkhangelsky, Athey, Hirshberg, Imbens, Wager (2021). *Synthetic Difference-in-Differences*. American Economic Review 111(12): 4088–4118.
 - Callaway, Sant'Anna (2021). *Difference-in-Differences with Multiple Time Periods*. Journal of Econometrics 225(2): 200–230.
 - Rambachan, Roth (2023). *A More Credible Approach to Parallel Trends*. Review of Economic Studies, rdad018.
-- FCA TR24/2 (2024). Insurance multi-firm outcomes monitoring review.
+- FCA Multi-Firm Review of Consumer Duty Implementation (2024).
 - FCA (2025). Evaluation of GIPP remedies (internal evaluation paper, causal DiD methodology).
 
 ## Related Libraries

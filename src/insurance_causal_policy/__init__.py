@@ -48,7 +48,7 @@ References
   Review of Economic Studies, rdad018.
 - Sant'Anna, Shaikh, Syrgkanis (2025). Doubly Robust Synthetic Controls.
   arXiv:2503.11375.
-- FCA TR24/2 (2024). Insurance multi-firm outcomes monitoring review.
+- FCA Multi-Firm Review of Consumer Duty Implementation (2024).
 - FCA EP25/2 (2025). Evaluation of GIPP remedies.
 """
 
