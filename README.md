@@ -2,10 +2,13 @@
 
 [![PyPI](https://img.shields.io/pypi/v/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
 [![Python](https://img.shields.io/pypi/pyversions/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
+[![Downloads](https://img.shields.io/pypi/dm/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
 [![License](https://img.shields.io/badge/license-MIT-green)]()
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
+[![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-causal-policy/blob/main/notebooks/quickstart.ipynb)
 
-> 💬 Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal-policy/discussions). Found it useful? A ⭐ helps others find it.
+> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal-policy/discussions). Found it useful? A star helps others find it.
 
 **Your before-and-after comparison can't prove the rate change worked. SDID can.**
 
@@ -109,6 +112,12 @@ print(result.to_fca_summary(product_line="Motor", rate_change_date="2023-Q1"))
 | No CVXPY available | DRSC (pure numpy/scipy) |
 
 ## Installation
+
+```bash
+pip install insurance-causal-policy
+```
+
+Or with uv:
 
 ```bash
 uv add insurance-causal-policy
