@@ -122,11 +122,12 @@ class TestCleanControlsNotYetTreated:
         df = _make_panel_pd()
         cohort = int(df["first_treated_period"].dropna().min())
         period = cohort + 1
-        never_treated_count = df["first_treated_period"].isna().sum()
+        # Count unique never-treated units (not rows) for apples-to-apples comparison
+        never_treated_unit_count = df[df["first_treated_period"].isna()]["unit_id"].nunique()
         controls = _clean_controls(df, cohort, period, cohort - 1, "notyettreated")
         # Must include at least the never-treated units
         control_unit_count = controls["unit_id"].nunique() if "unit_id" in controls.columns else len(controls)
-        assert control_unit_count >= never_treated_count
+        assert control_unit_count >= never_treated_unit_count
 
     def test_excludes_already_treated(self):
         """Units treated at or before 'period' should not appear in controls."""

@@ -136,7 +136,7 @@ def _fit_native_cs21(
     unit_col: str,
     period_col: str,
     cohort_col: str,
-    control_group: str,
+    control_group: str = "notyettreated",
 ) -> pd.DataFrame:
     """Native CS21 implementation: estimate ATT(g, t) for all (g, t) pairs.
 
