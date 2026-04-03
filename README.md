@@ -1,14 +1,18 @@
 # insurance-causal-policy
 
 [![PyPI](https://img.shields.io/pypi/v/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
-[![Python](https://img.shields.io/pypi/pyversions/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
 [![Downloads](https://img.shields.io/pypi/dm/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
+[![Python](https://img.shields.io/pypi/pyversions/insurance-causal-policy)](https://pypi.org/project/insurance-causal-policy/)
 [![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
-[![License](https://img.shields.io/badge/license-MIT-green)]()
+[![License](https://img.shields.io/badge/license-BSD--3-blue)](https://github.com/burning-cost/insurance-causal-policy/blob/main/LICENSE)
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/burning-cost/burning-cost-examples/blob/main/notebooks/burning-cost-in-30-minutes.ipynb)
 [![nbviewer](https://img.shields.io/badge/render-nbviewer-orange)](https://nbviewer.org/github/burning-cost/insurance-causal-policy/blob/main/notebooks/quickstart.ipynb)
 
-> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal-policy/discussions). Found it useful? A star helps others find it.
+> Synthetic Difference-in-Differences (SDID) and Doubly Robust Synthetic Controls for UK insurance rate change evaluation — because before-and-after comparisons cannot tell you whether your rate change worked.
+
+**Blog post:** [Your Rate Change Didn't Prove Anything](https://burning-cost.github.io/2026/03/13/your-rate-change-didnt-prove-anything/)
+
+---
 
 **Your before-and-after comparison can't prove the rate change worked. SDID can.**
 
@@ -18,7 +22,65 @@ Standard before-and-after comparisons can't answer this. Neither can regression 
 
 This library implements Synthetic Difference-in-Differences (SDID) and Doubly Robust Synthetic Controls (DRSC) for insurance rate change evaluation. It converts policy/claims tables into segment × quarter panels, estimates causal effects with proper statistical inference, and produces structured output in a format consistent with FCA Consumer Duty evidence requirements.
 
-**Blog post:** [Synthetic Difference-in-Differences for Rate Change Evaluation](https://burning-cost.github.io/2026/03/13/your-rate-change-didnt-prove-anything/)
+---
+
+## Installation
+
+```bash
+pip install insurance-causal-policy
+# or
+uv add insurance-causal-policy
+```
+
+With Callaway-Sant'Anna staggered adoption:
+
+```bash
+pip install "insurance-causal-policy[staggered]"
+# or: uv add insurance-causal-policy "differences>=0.2.0"
+```
+
+---
+
+## Quick start
+
+```python
+from insurance_causal_policy import (
+    PolicyPanelBuilder,
+    SDIDEstimator,
+    FCAEvidencePack,
+    compute_sensitivity,
+    make_synthetic_motor_panel,
+)
+
+# Generate synthetic data (or use your own policy/claims tables)
+policy_df, claims_df, rate_log_df = make_synthetic_motor_panel(
+    n_segments=100,
+    n_periods=12,        # 3 years quarterly
+    treat_fraction=0.25, # 25 segments receive the rate change
+    true_att=-0.08,      # true causal effect (-8pp loss ratio)
+    treatment_period=8,  # Q8 is the rate change
+)
+
+# Build balanced segment × period panel
+builder = PolicyPanelBuilder(
+    policy_df=policy_df,
+    claims_df=claims_df,
+    rate_log_df=rate_log_df,
+    outcome="loss_ratio",
+    exposure_col="earned_premium",
+)
+panel = builder.build()
+
+# Fit SDID
+est = SDIDEstimator(panel, inference="placebo", n_replicates=200)
+result = est.fit()
+print(result.summary())
+# → SDID estimate: -0.0748 decrease in loss_ratio (95% CI: -0.0899 to -0.0597, p=0.000)
+```
+
+See [`causal_rate_change_evaluation.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/causal_rate_change_evaluation.py) for the full workflow with event study pre-treatment validation, HonestDiD sensitivity analysis, and FCA evidence pack output.
+
+---
 
 ## Why bother
 
@@ -45,8 +107,6 @@ The naive before-after bias (+3.8pp) arises because market claims inflation incr
 ▶ [Run on Databricks](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/sdid_demo.py)
 
 ---
-
-**Read more:** [Your Rate Change Didn't Prove Anything](https://burning-cost.github.io/blog/your-rate-change-didnt-prove-anything) — why before-and-after comparisons fail FCA scrutiny and how SDID fixes this.
 
 ## What is SDID?
 
@@ -91,17 +151,11 @@ result = est.fit()
 print(result.summary())
 # -> DRSC estimate: -0.0614 decrease in loss_ratio (95% CI: -0.0924 to -0.0304, p=0.000)
 
-# SC weights (unconstrained OLS -- negative weights allowed)
-print(result.weights.sc_weights)
-
-# Per-unit moment function (ATT = mean(phi))
-print(result.phi.mean())  # should equal result.att
-
 # FCA evidence summary
 print(result.to_fca_summary(product_line="Motor", rate_change_date="2023-Q1"))
 ```
 
-**SDID vs DRSC -- which to use:**
+**SDID vs DRSC — which to use:**
 
 | Situation | Recommendation |
 |-----------|---------------|
@@ -111,82 +165,7 @@ print(result.to_fca_summary(product_line="Motor", rate_change_date="2023-Q1"))
 | Need simplex-constrained (non-negative) weights | SDID |
 | No CVXPY available | DRSC (pure numpy/scipy) |
 
-## Installation
-
-```bash
-pip install insurance-causal-policy
-```
-
-Or with uv:
-
-```bash
-uv add insurance-causal-policy
-```
-
-With Callaway-Sant'Anna staggered adoption:
-
-```bash
-uv add insurance-causal-policy "differences>=0.2.0"
-```
-
-## Quick start
-
-```python
-from insurance_causal_policy import (
-    PolicyPanelBuilder,
-    SDIDEstimator,
-    FCAEvidencePack,
-    compute_sensitivity,
-    make_synthetic_motor_panel,
-)
-
-# Generate synthetic data (or use your own policy/claims tables)
-policy_df, claims_df, rate_log_df = make_synthetic_motor_panel(
-    n_segments=100,
-    n_periods=12,        # 3 years quarterly
-    treat_fraction=0.25, # 25 segments receive the rate change
-    true_att=-0.08,      # true causal effect (-8pp loss ratio)
-    treatment_period=8,  # Q8 is the rate change
-)
-
-# Build balanced segment × period panel
-builder = PolicyPanelBuilder(
-    policy_df=policy_df,
-    claims_df=claims_df,
-    rate_log_df=rate_log_df,
-    outcome="loss_ratio",
-    exposure_col="earned_premium",
-)
-panel = builder.build()
-print(builder.summary())
-
-# Fit SDID
-est = SDIDEstimator(panel, inference="placebo", n_replicates=200)
-result = est.fit()
-print(result.summary())
-# → SDID estimate: -0.0748 decrease in loss_ratio (95% CI: -0.0899 to -0.0597, p=0.000)
-
-# Sensitivity analysis
-sens = compute_sensitivity(result, m_values=[0, 0.5, 1.0, 2.0])
-print(sens.summary())
-# → Result robust for all M tested (up to 2.0)
-
-# FCA evidence pack
-pack = FCAEvidencePack(
-    result=result,
-    sensitivity=sens,
-    product_line="Motor",
-    rate_change_date="2023-Q1",
-    rate_change_magnitude="+8.5% technical premium",
-    panel_summary=builder.summary(),
-)
-print(pack.to_markdown())
-```
-
-## Worked Example
-
-[`causal_rate_change_evaluation.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/causal_rate_change_evaluation.py) walks through the full SDID workflow end-to-end: a synthetic motor portfolio with staggered rate changes, event study pre-treatment validation, HonestDiD sensitivity analysis, and final output as a structured FCA Consumer Duty evidence pack. It is the fastest way to see all four components working together on realistic data before wiring in your own policy and claims tables.
-
+---
 
 ## Your data schema
 
@@ -217,6 +196,8 @@ print(pack.to_markdown())
 
 Segments absent from `rate_log_df` are classified as never-treated (valid control units).
 
+---
+
 ## Staggered adoption
 
 When different segments received rate changes at different times, use `StaggeredEstimator` instead.
@@ -238,21 +219,7 @@ result = est.fit()
 
 This implements Callaway & Sant'Anna (2021): estimates ATT(g, t) for each cohort g and period t separately, using only clean controls (never-treated or not-yet-treated). Avoids the contamination problem where already-treated segments pollute the control group for later-treated cohorts.
 
-## Outcome metrics
-
-```python
-# Loss ratio (default)
-builder = PolicyPanelBuilder(..., outcome="loss_ratio")
-
-# Claim frequency
-builder = PolicyPanelBuilder(..., outcome="frequency")
-
-# Retention rate (requires policies_renewed and policies_due columns)
-builder = PolicyPanelBuilder(..., outcome="retention")
-
-# Use paid claims only (reduces IBNR bias for recent periods)
-builder = PolicyPanelBuilder(..., paid_only=True)
-```
+---
 
 ## Parallel trends: what to do when it fails
 
@@ -267,6 +234,8 @@ If the pre-treatment test fails (p < 0.10), investigate before using results for
 
 The sensitivity analysis quantifies how robust the conclusion is: "ATT remains significant even if post-treatment parallel trends violations are twice as large as the pre-period variation."
 
+---
+
 ## Warnings about IBNR
 
 Loss ratio for periods within 18 months of the analysis date understates ultimate claims because IBNR is not fully developed. If your post-treatment window is recent:
@@ -274,6 +243,8 @@ Loss ratio for periods within 18 months of the analysis date understates ultimat
 - Set `paid_only=True` to use paid claims (less IBNR noise, slower development)
 - Or use `outcome="frequency"` — frequency is far less sensitive to IBNR lag
 - Or restrict analysis to accident periods with >18 months of development
+
+---
 
 ## FCA regulatory context
 
@@ -289,26 +260,7 @@ Good evidence for a Consumer Duty outcome monitoring pack:
 
 This library produces all of it.
 
-## Performance
-
-Benchmarked against naive before-after and plain DiD on synthetic UK motor insurance panel data (100 segments, 12 quarterly periods, true ATT = -0.08 on loss ratio). Market-wide claims inflation of 0.5pp per period creates upward bias in naive estimators that do not use a control group. Results from `notebooks/benchmark_sdid.py` run 2026-03-17 on Databricks serverless. See `## Why bother` above for the comparison table.
-
-**Fit time:** 0.013s (naive before-after) vs 2.50s (SDID with 200 placebo replicates) on a 100-segment, 12-period panel. SDID runtime scales with the number of control segments × pre-treatment periods and with `n_replicates`. For a 200-segment panel with 300 replicates, expect 15–30 seconds.
-
-**Sensitivity (Rambachan-Roth 2023):** result robust for all M values tested (0 to 2.0). Post-treatment parallel trends violations would need to exceed twice the observed pre-period variation before the conclusion changes sign — this exceeds the FCA's typical robustness threshold.
-
-**SDID 95% CI coverage across 50 simulations:** 98.0% (target: 95%). Coverage is slightly conservative — the placebo-based interval is slightly wider than the minimum necessary. In practice this means the stated confidence intervals do not systematically exclude the true effect.
-
-**Where SDID adds most value:**
-- Market-wide claims inflation present in the panel window (as in this DGP: +3.8pp naive bias)
-- Rate change applied to a subset of segments, not book-wide
-- FCA Consumer Duty evidence pack requires credible causal attribution
-- Mix shift or regulatory changes coincide with the rate window
-
-**When plain DiD is sufficient:** panels where treated and control segments have demonstrably parallel pre-trends and the only confound is an additive market shock. On balanced synthetic panels, plain DiD is approximately unbiased but still lacks formal inference and pre-treatment validation.
-
-Run `notebooks/benchmark_sdid.py` on Databricks to reproduce.
-
+---
 
 ## DRSC vs SDID: benchmark results
 
@@ -317,9 +269,6 @@ factor model DGP, 8 pre-treatment + 4 post-treatment periods, 5 treated units).
 Run on Databricks serverless 2026-03-21. See `notebooks/drsc_vs_sdid.py` for
 full methodology.
 
-SDID uses jackknife inference. DRSC uses multiplier bootstrap (Exp(1)-1), valid
-under either SC identification or parallel trends.
-
 **Few donors (N_co = 6):**
 
 | Metric              | SDID    | DRSC    |
@@ -327,13 +276,9 @@ under either SC identification or parallel trends.
 | Mean ATT (true=-0.06) | -0.0588 | -0.0590 |
 | Absolute bias       | 0.0012  | 0.0010  |
 | RMSE                | 0.0137  | 0.0104  |
-| Std dev             | 0.0137  | 0.0104  |
 | 95% CI coverage     | 97%     | 93%     |
 
-DRSC reduces RMSE by 24% at N_co=6. Both estimators recover the ATT with similar
-low bias under the factor model DGP. The DRSC advantage is variance reduction
-from the OLS-weight + multiplier bootstrap combination, which doesn't force weights
-into the simplex.
+DRSC reduces RMSE by 24% at N_co=6.
 
 **Many donors (N_co = 40):**
 
@@ -343,14 +288,12 @@ into the simplex.
 | RMSE                | 0.0088  | 0.0088  |
 | 95% CI coverage     | 96%     | 91%     |
 
-At N_co=40, both methods perform identically on point estimates and RMSE. SDID has
-slightly better CI coverage (96% vs 91%), likely because jackknife SE is better
-calibrated than the bootstrap SE for large symmetric problems.
-
 **Decision rule:**
 - N_co < 10: use `DoublyRobustSCEstimator`
 - N_co >= 20: use `SDIDEstimator`
 - N_co 10–20: run both; if estimates diverge by more than one SE, investigate SC weight diagnostics
+
+---
 
 ## Dependencies
 
@@ -361,13 +304,7 @@ calibrated than the bootstrap SE for large symmetric problems.
 - `matplotlib` — plots
 - `differences` (optional) — Callaway-Sant'Anna reference implementation
 
-## Worked Example
-
-[`causal_rate_change_evaluation.py`](https://github.com/burning-cost/burning-cost-examples/blob/main/examples/causal_rate_change_evaluation.py) — full SDID rate change evaluation on synthetic motor portfolio: event study, HonestDiD sensitivity, FCA evidence pack.
-
-A Databricks-importable version is also available: [Databricks notebook](https://github.com/burning-cost/burning-cost-examples/blob/main/notebooks/causal_rate_change_evaluation.py).
-
-
+---
 
 ## References
 
@@ -378,16 +315,23 @@ A Databricks-importable version is also available: [Databricks notebook](https:/
 - FCA Multi-Firm Review of Consumer Duty Implementation (2024).
 - FCA (2025). Evaluation of GIPP remedies (internal evaluation paper, causal DiD methodology).
 
-## Related Libraries
+---
+
+## Part of the Burning Cost toolkit
 
 | Library | Description |
 |---------|-------------|
-| [insurance-causal](https://github.com/burning-cost/insurance-causal) | Double Machine Learning for individual-level causal effects — complements portfolio-level SDID with risk-level treatment effect estimation |
-| [insurance-trend](https://github.com/burning-cost/insurance-trend) | Trend analysis with structural break detection — separates genuine market trends from the effects of pricing actions |
 | [insurance-monitoring](https://github.com/burning-cost/insurance-monitoring) | PSI and A/E drift detection — for detecting when a rate change is needed |
-| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — Consumer Duty evidence pack often requires both causal outcome monitoring and fairness audit |
+| [insurance-trend](https://github.com/burning-cost/insurance-trend) | Trend analysis with structural break detection — separates genuine market trends from pricing actions |
+| [insurance-fairness](https://github.com/burning-cost/insurance-fairness) | Proxy discrimination auditing — Consumer Duty evidence pack often requires both causal monitoring and fairness audit |
+| [insurance-governance](https://github.com/burning-cost/insurance-governance) | Model validation and MRM governance packs |
+
+Part of the [Burning Cost](https://burning-cost.github.io) open-source insurance analytics toolkit. → [See all libraries](https://burning-cost.github.io/stack/)
+
+> Questions or feedback? Start a [Discussion](https://github.com/burning-cost/insurance-causal-policy/discussions). Found it useful? A [GitHub star](https://github.com/burning-cost/insurance-causal-policy) helps others find it.
+
+**Need help implementing this in production?** [Talk to us](https://burning-cost.github.io/work-with-us/).
+
 ## Licence
 
 BSD-3
-
----
