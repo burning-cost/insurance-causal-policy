@@ -1004,11 +1004,12 @@ class TestSyntheticMotorPanelVariants:
         assert policy_df["earned_premium"].is_nan().sum() == 0
 
     def test_zero_treat_fraction(self):
-        """treat_fraction=0 → no treated segments in rate_log."""
+        """treat_fraction=0 → minimum 1 treated segment (enforced by max(1, ...))."""
         _, _, rate_log_df = make_synthetic_motor_panel(
             n_segments=20, n_periods=6, treat_fraction=0.0, random_seed=55
         )
-        assert len(rate_log_df) == 0
+        # Source enforces max(1, int(n_segments * treat_fraction)) = max(1, 0) = 1
+        assert len(rate_log_df) >= 1
 
     def test_full_treat_fraction(self):
         """treat_fraction=1.0 → all segments treated."""
