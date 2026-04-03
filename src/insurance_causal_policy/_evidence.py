@@ -289,6 +289,8 @@ class FCAEvidencePack:
             return ""
 
         ps = self.panel_summary
+        pct = ps.get('pct_nonzero_exposure')
+        pct_str = f"{pct:.1f}%" if isinstance(pct, (int, float)) else "N/A"
         return (
             f"## Data Quality\n\n"
             f"| Metric | Value |\n"
@@ -298,7 +300,7 @@ class FCAEvidencePack:
             f"| Control segments | {ps.get('n_control_segments', 'N/A')} |\n"
             f"| Time periods | {ps.get('n_periods', 'N/A')} |\n"
             f"| Panel cells | {ps.get('n_cells', 'N/A')} |\n"
-            f"| Non-zero exposure cells | {ps.get('pct_nonzero_exposure', 'N/A'):.1f}% |\n"
+            f"| Non-zero exposure cells | {pct_str} |\n"
             f"| Outcome metric | {ps.get('outcome', 'N/A')} |\n"
         )
 

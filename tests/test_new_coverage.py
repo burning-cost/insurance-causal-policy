@@ -1226,8 +1226,8 @@ class TestBuildPanelFromPandasRobust:
             "claim_count": np.array([100, 80], dtype=np.int32),
         })
         rate_log = pd.DataFrame({
-            "segment_id": pd.Series([], dtype=str),
-            "first_treated_period": pd.Series([], dtype=np.int32),
+            "segment_id": ["A"],
+            "first_treated_period": np.array([2], dtype=np.int32),
         })
         result = build_panel_from_pandas(
             policy_df=policy, claims_df=claims, rate_log_df=rate_log
